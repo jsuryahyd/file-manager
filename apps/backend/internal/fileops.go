@@ -1,6 +1,36 @@
+// SyncUniqueFiles copies only unique files from srcDir to dstDir, skipping duplicates.
+func SyncUniqueFiles(srcDir, dstDir string) ([]string, error) {
+	files, err := ListFiles(srcDir)
+	if err != nil {
+		return nil, err
+	}
+	var copied []string
+	for _, name := range files {
+		srcPath := filepath.Join(srcDir, name)
+		info, err := os.Stat(srcPath)
+		if err != nil || info.IsDir() {
+			continue // skip directories and errors
+		}
+		isDup, err := IsDuplicate(srcPath, dstDir)
+		if err != nil {
+			return copied, err
+		}
+		if !isDup {
+			dstPath := filepath.Join(dstDir, name)
+			err := CopyFile(srcPath, dstPath)
+			if err != nil {
+				return copied, err
+			}
+			copied = append(copied, name)
+		}
+	}
+	return copied, nil
+}
 package fileops
 
 import (
+	"crypto/sha256"
+	"io"
 	"os"
 	"path/filepath"
 )
@@ -44,7 +74,7 @@ func DeleteFile(path string) error {
 	return os.Remove(path)
 }
 
-// IsDuplicate checks if a file with the same name and size exists in the destination directory.
+// IsDuplicate checks if a file with the same name, size, and hash exists in the destination directory.
 func IsDuplicate(src, dstDir string) (bool, error) {
 	srcInfo, err := os.Stat(src)
 	if err != nil {
@@ -58,5 +88,30 @@ func IsDuplicate(src, dstDir string) (bool, error) {
 		}
 		return false, err
 	}
-	return srcInfo.Size() == dstInfo.Size(), nil
+	if srcInfo.Size() != dstInfo.Size() {
+		return false, nil
+	}
+	srcHash, err := fileHash(src)
+	if err != nil {
+		return false, err
+	}
+	dstHash, err := fileHash(dstPath)
+	if err != nil {
+		return false, err
+	}
+	return srcHash == dstHash, nil
+}
+
+// fileHash returns the SHA256 hash of a file.
+func fileHash(path string) (string, error) {
+	f, err := os.Open(path)
+	if err != nil {
+		return "", err
+	}
+	defer f.Close()
+	h := sha256.New()
+	if _, err := io.Copy(h, f); err != nil {
+		return "", err
+	}
+	return fmt.Sprintf("%x", h.Sum(nil)), nil
 }
