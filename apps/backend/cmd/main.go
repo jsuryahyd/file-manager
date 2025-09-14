@@ -6,6 +6,8 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"strconv"
+	"strings"
 
 	"file-manager-backend/internal/config"
 	"file-manager-backend/internal/db"
@@ -63,7 +65,7 @@ func main() {
 			opts.ShowHidden = true
 		}
 
-		files, err := fileops.ListFiles(dir, opts)
+		files, err := fileops.ListFilesMeta(dir, opts)
 		if err != nil {
 			switch err {
 			case fileops.ErrInvalidPath:

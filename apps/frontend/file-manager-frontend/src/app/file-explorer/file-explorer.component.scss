@@ -1,0 +1,46 @@
+@import '../../styles/base';
+@import '../../styles/mixins';
+
+.explorer-container {
+  max-width: 600px;
+  margin: 2rem auto;
+  background: #fff;
+  border-radius: $border-radius;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  padding: 2rem;
+}
+
+.file-list {
+  list-style: none;
+  padding: 0;
+  margin: 1rem 0;
+
+  li {
+    @include flex-center;
+    justify-content: flex-start;
+    padding: $spacing-unit;
+    border-radius: $border-radius;
+    cursor: pointer;
+    transition: background 0.2s;
+    margin-bottom: $spacing-unit;
+
+    &.selected {
+      background: $accent-color;
+      color: #fff;
+    }
+    .icon {
+      margin-right: $spacing-unit;
+      font-size: 1.25rem;
+    }
+    .file-name {
+      font-family: $font-family;
+      font-size: $body-font-size;
+    }
+  }
+}
+
+.selection-info {
+  margin-top: 1rem;
+  font-size: $body-font-size;
+  color: $primary-color;
+}

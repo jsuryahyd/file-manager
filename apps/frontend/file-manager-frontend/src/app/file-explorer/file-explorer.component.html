@@ -1,0 +1,20 @@
+<div class="explorer-container">
+  <h2 class="heading">File Explorer</h2>
+  <ul class="file-list">
+    @for (file of files; track file.name) {
+    <li [class.selected]="selected.has(file.name)" (click)="toggleSelect(file.name)">
+      <span
+        class="icon"
+        [class.folder]="file.type === 'folder'"
+        [class.file]="file.type !== 'folder'"
+      >
+        {{ file.type === 'folder' ? '📁' : '📄' }}
+      </span>
+      <span class="file-name">{{ file.name }}</span>
+    </li>
+    }
+  </ul>
+  @if (selected.size > 0) {
+  <div class="selection-info">Selected: {{ selected.size }}</div>
+  }
+</div>
