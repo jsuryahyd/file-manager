@@ -42,9 +42,11 @@
 10. **Refinement & Optimization**: Improve performance, fix bugs, polish UI.
 
 ### Next Steps
-- Confirm project requirements and technology stack.
-- Begin with monorepo initialization commit.
-- Follow the plan for incremental development and commit-by-commit progress.
+
+---
+## Frontend Planning & PRD
+- [Frontend PRD](./apps/frontend/PRD-frontend.md): Product requirements and features for web UI
+- [Frontend Implementation Plan](./apps/frontend/plan-frontend.md): Commit-by-commit plan for Angular UI and design system
 
 ---
 *This plan will be updated as the project evolves. Suggestions for tools and extensions will be revisited as needed.*

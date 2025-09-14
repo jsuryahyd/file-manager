@@ -3,6 +3,7 @@ package db
 import (
 	"database/sql"
 	_ "github.com/mattn/go-sqlite3"
+	"os"
 )
 
 // InitDB initializes the SQLite database and returns the connection.

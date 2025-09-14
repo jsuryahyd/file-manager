@@ -1,0 +1,29 @@
+// SCSS Typography for File Manager Design System
+$heading-font-size: 1.5rem;
+$subheading-font-size: 1.125rem;
+$body-font-size: 1rem;
+$caption-font-size: 0.875rem;
+
+.heading {
+  font-size: $heading-font-size;
+  font-weight: 600;
+  color: $text-color;
+}
+
+.subheading {
+  font-size: $subheading-font-size;
+  font-weight: 500;
+  color: $text-color;
+}
+
+.body {
+  font-size: $body-font-size;
+  font-weight: 400;
+  color: $text-color;
+}
+
+.caption {
+  font-size: $caption-font-size;
+  font-weight: 400;
+  color: $secondary-color;
+}
