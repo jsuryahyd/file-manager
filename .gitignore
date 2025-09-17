@@ -5,6 +5,6 @@ build/
 .env
 *.sqlite
 *.db
-.vscode/
+# .vscode/
 .idea/
 .DS_Store

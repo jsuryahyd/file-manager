@@ -1,0 +1,29 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Launch Backend Server",
+            "type": "go",
+            "request": "launch",
+            "mode": "auto",
+            "program": "${workspaceFolder}/apps/backend/cmd/main.go",
+            "cwd": "${workspaceFolder}/apps/backend"
+        },
+        {
+            "name": "Debug Test Package",
+            "type": "go",
+            "request": "launch",
+            "mode": "test",
+            "program": "${fileDirname}",
+            "cwd": "${workspaceFolder}/apps/backend"
+        },
+        {
+            "name": "Debug Full Test Suite",
+            "type": "go",
+            "request": "launch",
+            "mode": "test",
+            "program": "./...",
+            "cwd": "${workspaceFolder}/apps/backend"
+        }
+    ]
+}
