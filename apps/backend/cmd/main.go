@@ -6,13 +6,25 @@ import (
 	"log"
 	"net/http"
 	"os"
-	"strconv"
-	"strings"
 
 	"file-manager-backend/internal/config"
 	"file-manager-backend/internal/db"
 	"file-manager-backend/internal/fileops"
 )
+
+// FileEntry defines the structure for file and directory metadata.
+type FileEntry struct {
+	Name    string      `json:"name"`
+	IsDir   bool        `json:"isDir"`
+	Size    int64       `json:"size"`
+	ModTime string      `json:"modTime"`
+}
+
+// SyncRequest defines the structure for a synchronization request.
+type SyncRequest struct {
+	Source      string `json:"source"`
+	Destination string `json:"destination"`
+}
 
 func main() {
 	cfg, err := config.Load()
@@ -38,71 +50,82 @@ func main() {
 		fmt.Println("Database already exists.")
 	}
 
-	http.HandleFunc("/api/list", func(w http.ResponseWriter, r *http.Request) {
-		dir := r.URL.Query().Get("dir")
-		if dir == "" {
-			dir = "." // default to current directory
+	filesHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		path := r.URL.Query().Get("path")
+		if path == "" {
+			path = "." // default to current directory
 		}
 
-		opts := fileops.DefaultListOptions()
-
-		// Parse query parameters
-		if depth := r.URL.Query().Get("depth"); depth != "" {
-			if d, err := strconv.Atoi(depth); err == nil {
-				opts.Depth = d
-			}
-		}
-		if pattern := r.URL.Query().Get("pattern"); pattern != "" {
-			opts.RegexPattern = pattern
-		}
-		if include := r.URL.Query().Get("include"); include != "" {
-			opts.Include = strings.Split(include, ",")
-		}
-		if exclude := r.URL.Query().Get("exclude"); exclude != "" {
-			opts.Exclude = strings.Split(exclude, ",")
-		}
-		if showHidden := r.URL.Query().Get("hidden"); showHidden == "true" {
-			opts.ShowHidden = true
-		}
-
-		files, err := fileops.ListFilesMeta(dir, opts)
+		entries, err := os.ReadDir(path)
 		if err != nil {
-			switch err {
-			case fileops.ErrInvalidPath:
-				http.Error(w, err.Error(), http.StatusBadRequest)
-			case fileops.ErrPathNotFound:
-				http.Error(w, err.Error(), http.StatusNotFound)
-			case fileops.ErrPermissionDenied:
-				http.Error(w, err.Error(), http.StatusForbidden)
-			case fileops.ErrPatternInvalid:
-				http.Error(w, err.Error(), http.StatusBadRequest)
-			default:
-				http.Error(w, err.Error(), http.StatusInternalServerError)
-			}
+			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
+		}
+
+		var fileEntries []FileEntry
+		for _, entry := range entries {
+			info, err := entry.Info()
+			if err != nil {
+				continue // Skip files we can't get info for
+			}
+			fileEntries = append(fileEntries, FileEntry{
+				Name:    entry.Name(),
+				IsDir:   entry.IsDir(),
+				Size:    info.Size(),
+				ModTime: info.ModTime().String(),
+			})
 		}
 
 		w.Header().Set("Content-Type", "application/json")
-		if err := json.NewEncoder(w).Encode(files); err != nil {
+		if err := json.NewEncoder(w).Encode(fileEntries); err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 		}
 	})
 
-	http.HandleFunc("/api/sync", func(w http.ResponseWriter, r *http.Request) {
-		src := r.URL.Query().Get("src")
-		dst := r.URL.Query().Get("dst")
-		if src == "" || dst == "" {
-			http.Error(w, "src and dst required", http.StatusBadRequest)
+	syncHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost {
+			http.Error(w, "Only POST method is allowed", http.StatusMethodNotAllowed)
 			return
 		}
-		copied, err := fileops.SyncUniqueFiles(src, dst)
+
+		var req SyncRequest
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+
+		if req.Source == "" || req.Destination == "" {
+			http.Error(w, "source and destination are required", http.StatusBadRequest)
+			return
+		}
+
+		_, err := fileops.SyncUniqueFiles(dbConn, req.Source, req.Destination)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
-		json.NewEncoder(w).Encode(copied)
+
+		w.WriteHeader(http.StatusNoContent)
 	})
+
+	http.Handle("/api/files", corsMiddleware(filesHandler))
+	http.Handle("/api/sync", corsMiddleware(syncHandler))
 
 	fmt.Println("File Manager Backend API running on :8080")
 	log.Fatal(http.ListenAndServe(":8080", nil))
+}
+
+func corsMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Access-Control-Allow-Origin", "*")
+		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+		w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
+
+		if r.Method == http.MethodOptions {
+			w.WriteHeader(http.StatusOK)
+			return
+		}
+
+		next.ServeHTTP(w, r)
+	})
 }

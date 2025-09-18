@@ -1,62 +1,99 @@
-# File Manager
+# Implementation Plan: File Manager
 
-## Implementation Plan
+**Branch**: `main` | **Date**: 2025-09-19 | **Spec**: [spec.md](spec.md)
+**Input**: Feature specification from `spec.md`
 
-### Project Goals
-- Build a local file backup tool in Golang, supporting flexible file selection, multiple destinations, and reliable deduplication.
-- Develop a modern Angular web GUI for file management and sync operations.
-- Use SQLite for metadata storage and DDD for Go backend structure.
-- Plan for future features: cloud sync, file analysis/classification, OS integration, and graph-based UI.
+## Summary
+This project is to build a local file backup and synchronization tool. The core functionality includes selecting source and destination directories, performing synchronization with reliable deduplication, and providing a web-based GUI for management. The backend will be built in Go, the frontend in Angular, and it will use SQLite for metadata storage.
 
-### Development Workflow
-- Use VS Code as the primary IDE.
-- Follow commit-by-commit implementation for clear progress tracking.
-- Use Git for version control.
+## Technical Context
+**Language/Version**: Go 1.21, TypeScript (latest for Angular)
+**Primary Dependencies**: Go: `github.com/mattn/go-sqlite3`, Angular: `@angular/core`
+**Storage**: SQLite
+**Testing**: Go testing library, Jest/Jasmine for Angular
+**Target Platform**: Local desktop (cross-platform)
+**Project Type**: Web application (frontend + backend)
+**Performance Goals**: [NEEDS CLARIFICATION: e.g., sync speed, UI responsiveness]
+**Constraints**: [NEEDS CLARIFICATION: e.g., memory usage, CPU load]
+**Scale/Scope**: [NEEDS CLARIFICATION: e.g., max number of files, max file size]
 
-### Recommended Tools & Extensions
-- **GitHub Copilot**: AI-powered code completion and suggestions.
-- **Copilot Chat**: Interactive AI assistant for code review and queries.
-- **Prettier**: Code formatter for consistent style (Angular).
-- **ESLint**: Linting for JavaScript/TypeScript projects.
-- **Go**: Official Go extension for VS Code.
-- **Angular Language Service**: Enhanced Angular development.
-- **Better Comments**: Enhanced code commenting.
-- **Project Manager**: Quick project switching.
-- **Path Intellisense**: Autocompletion for file paths.
+## Constitution Check
+*GATE: Must pass before Phase 0 research. Re-check after Phase 1 design.*
 
-### Initial Setup (Commit 1)
-- Initialize monorepo structure using a recommended tool (e.g., Nx, Turborepo, or Go workspace).
-- Add `.gitignore`, `README.md`, and license files.
-- Set up basic folder structure for Go backend, Angular frontend, and database.
+[Gates determined based on constitution file]
 
-### Planned Commits
-1. **Monorepo Initialization**: Set up monorepo, add essential files.
-2. **Tooling Setup**: Install and configure recommended extensions and tools.
-3. **Backend Core Logic**: Implement basic file operations and sync logic in Go.
-4. **Frontend Setup**: Scaffold Angular app, connect to backend API.
-5. **Database Integration**: Set up SQLite and basic schema for metadata.
-6. **Deduplication Logic**: Implement reliable deduplication in sync process.
-7. **Testing & Validation**: Add unit and integration tests for backend and frontend.
-8. **Documentation**: Write usage and contribution guides.
-9. **Feature Expansion**: Add advanced features (cloud sync, file analysis, graph UI, OS integration).
-10. **Refinement & Optimization**: Improve performance, fix bugs, polish UI.
+## Project Structure
 
-### Next Steps
+### Documentation
+```
+./
+├── plan.md              # This file
+├── spec.md              # Feature specification
+├── tasks.md             # Generated tasks
+└── apps/
+    ├── frontend/
+    │   ├── plan-frontend.md
+    │   └── PRD-frontend.md
+    └── backend/
+```
 
----
-## Frontend Planning & PRD
-- [Frontend PRD](./apps/frontend/PRD-frontend.md): Product requirements and features for web UI
-- [Frontend Implementation Plan](./apps/frontend/plan-frontend.md): Commit-by-commit plan for Angular UI and design system
+### Source Code (repository root)
+```
+apps/
+├── backend/
+│   ├── cmd/
+│   ├── internal/
+│   └── ...
+└── frontend/
+    └── file-manager-frontend/
+        ├── src/
+        └── ...
+```
 
----
-*This plan will be updated as the project evolves. Suggestions for tools and extensions will be revisited as needed.*
+**Structure Decision**: Web application (frontend + backend)
 
-### PRD: 
-Help me build a local file backup tool in golang, between hard drives. I want to start simple and add features in phases. At the end, it will have a web GUI to manage, schedule, generate reports etc. It would have most flexibility in choosing which files (support path patterns and ignore patterns etc) are backed up, and to select multiple destinations at once to sync to. Later we will also add api support for any supported cloud providers - so that we drag & drop, and files are sent to cloud provider. I also want to have a view with an intuitive graph like UI that shows all drives that a file is present at.
-- Later I also want to run analysis on each file and summarize the file content, classify the file and add that to metadata, so that I can organize files based on this classification. Suggest good tools for this - do we need an AI for this?
-- I also want to add some of these features to native file manager on the Operating system, i.e each file context menu.
+## Phase 0: Outline & Research
+1. **Extract unknowns from Technical Context** above:
+   - Research performance goals for file synchronization tools.
+   - Research typical constraints for desktop applications.
+   - Define the initial scale and scope for version 1.0.
 
-But first let us build a simple web gui that lists system  folders and files and option to target a folder on other drive, where the files will be synced to. Files will not be duplicated, only new files are added. Deduping must be reliable. 
+## Phase 1: Design & Contracts
+*Prerequisites: research.md complete*
 
-Use Modern Angular for UI. Golang as main language, sqlite for database. Make a Developer friendly setup using monorepo with best monorepo management tool, while also keeping it simple.
-Use DDD in golang app, as we support multiple modules and domains.
+1. **Data Model**: The data model is defined in `apps/database/init.sql`.
+2. **API Contracts**: Define the API endpoints for communication between the frontend and backend.
+3. **Quickstart**: Create a `quickstart.md` guide for setting up and running the project.
+
+## Phase 2: Task Planning Approach
+*This section describes what the /tasks command will do*
+
+**Task Generation Strategy**:
+- Generate tasks based on the `plan.md` and `spec.md`.
+- Create tasks for backend development (API endpoints, database integration, sync logic).
+- Create tasks for frontend development (UI components, API service, state management).
+- Create tasks for testing (unit and integration tests for both frontend and backend).
+
+## Phase 3+: Future Implementation
+*These phases are beyond the scope of the /plan command*
+
+**Phase 3**: Task execution (`tasks.md`)
+**Phase 4**: Implementation
+**Phase 5**: Validation
+
+## Progress Tracking
+*This checklist is updated during execution flow*
+
+**Phase Status**:
+- [ ] Phase 0: Research complete
+- [ ] Phase 1: Design complete
+- [ ] Phase 2: Task planning complete
+- [ ] Phase 3: Tasks generated
+- [ ] Phase 4: Implementation complete
+- [ ] Phase 5: Validation passed
+
+**Gate Status**:
+- [ ] Initial Constitution Check: PASS
+- [ ] Post-Design Constitution Check: PASS
+- [ ] All NEEDS CLARIFICATION resolved
+- [ ] Complexity deviations documented

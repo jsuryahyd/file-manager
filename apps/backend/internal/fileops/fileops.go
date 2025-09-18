@@ -2,18 +2,27 @@ package fileops
 
 import (
 	"crypto/sha256"
+	"database/sql"
 	"fmt"
 	"io"
 	"os"
 	"path/filepath"
+
+	"file-manager-backend/internal/db"
 )
 
 // SyncUniqueFiles copies only unique files from srcDir to dstDir, skipping duplicates.
-func SyncUniqueFiles(srcDir, dstDir string) ([]string, error) {
+func SyncUniqueFiles(database *sql.DB, srcDir, dstDir string) ([]string, error) {
+	jobID, err := db.CreateSyncJob(database, srcDir, dstDir)
+	if err != nil {
+		return nil, err
+	}
+
 	files, err := ListFileNames(srcDir)
 	if err != nil {
 		return nil, err
 	}
+
 	var copied []string
 	for _, name := range files {
 		srcPath := filepath.Join(srcDir, name)
@@ -21,19 +30,42 @@ func SyncUniqueFiles(srcDir, dstDir string) ([]string, error) {
 		if err != nil || info.IsDir() {
 			continue // skip directories and errors
 		}
-		isDup, err := IsDuplicate(srcPath, dstDir)
+
+		hash, err := fileHash(srcPath)
 		if err != nil {
 			return copied, err
 		}
-		if !isDup {
+
+		existingFile, err := db.GetFileByPath(database, srcPath)
+		if err != nil && err != sql.ErrNoRows {
+			return copied, err
+		}
+
+		if existingFile == nil || existingFile.Hash != hash {
 			dstPath := filepath.Join(dstDir, name)
 			err := CopyFile(srcPath, dstPath)
 			if err != nil {
+				db.UpdateSyncJobStatus(database, jobID, "failed")
 				return copied, err
 			}
+
+			fileID, err := db.CreateFile(database, srcPath, hash, info.Size())
+			if err != nil {
+				db.UpdateSyncJobStatus(database, jobID, "failed")
+				return copied, err
+			}
+
+			_, err = db.CreateSyncedFile(database, jobID, fileID)
+			if err != nil {
+				db.UpdateSyncJobStatus(database, jobID, "failed")
+				return copied, err
+			}
+
 			copied = append(copied, name)
 		}
 	}
+
+	db.UpdateSyncJobStatus(database, jobID, "completed")
 	return copied, nil
 }
 
@@ -62,7 +94,7 @@ func CopyFile(src, dst string) error {
 		return err
 	}
 	defer dstFile.Close()
-	_, err = srcFile.WriteTo(dstFile)
+	_, err = io.Copy(dstFile, srcFile)
 	return err
 }
 
@@ -74,34 +106,6 @@ func MoveFile(src, dst string) error {
 // DeleteFile deletes the specified file.
 func DeleteFile(path string) error {
 	return os.Remove(path)
-}
-
-// IsDuplicate checks if a file with the same name, size, and hash exists in the destination directory.
-func IsDuplicate(src, dstDir string) (bool, error) {
-	srcInfo, err := os.Stat(src)
-	if err != nil {
-		return false, err
-	}
-	dstPath := filepath.Join(dstDir, filepath.Base(src))
-	dstInfo, err := os.Stat(dstPath)
-	if err != nil {
-		if os.IsNotExist(err) {
-			return false, nil
-		}
-		return false, err
-	}
-	if srcInfo.Size() != dstInfo.Size() {
-		return false, nil
-	}
-	srcHash, err := fileHash(src)
-	if err != nil {
-		return false, err
-	}
-	dstHash, err := fileHash(dstPath)
-	if err != nil {
-		return false, err
-	}
-	return srcHash == dstHash, nil
 }
 
 // fileHash returns the SHA256 hash of a file.

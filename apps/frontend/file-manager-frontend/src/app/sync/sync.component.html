@@ -1,0 +1,11 @@
+<form [formGroup]="form" (ngSubmit)="sync()">
+  <div>
+    <label for="source">Source Directory:</label>
+    <input id="source" formControlName="source" placeholder="/path/to/source">
+  </div>
+  <div>
+    <label for="destination">Destination Directory:</label>
+    <input id="destination" formControlName="destination" placeholder="/path/to/destination">
+  </div>
+  <button type="submit" [disabled]="form.invalid">Sync</button>
+</form>
