@@ -2,15 +2,23 @@ package fileops
 
 import (
 	"database/sql"
-	"os"
 	"path/filepath"
 	"testing"
 
 	"file-manager-backend/internal/db"
+	"github.com/spf13/afero"
 	_ "github.com/mattn/go-sqlite3"
 )
 
-func setupTestSync(t *testing.T) (*sql.DB, string, string, func()) {
+func setupTestSync(t *testing.T) (*sql.DB, string, string, int64, func()) {
+	// Setup filesystems
+	AppFs = afero.NewMemMapFs()
+	db.AppFs = AppFs
+	srcDir := "/src"
+	dstDir := "/dst"
+	AppFs.Mkdir(srcDir, 0755)
+	AppFs.Mkdir(dstDir, 0755)
+
 	// Setup database
 	database, err := sql.Open("sqlite3", ":memory:")
 	if err != nil {
@@ -27,13 +35,20 @@ func setupTestSync(t *testing.T) (*sql.DB, string, string, func()) {
 		modified_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 	);
 
-	CREATE TABLE IF NOT EXISTS sync_jobs (
+	CREATE TABLE IF NOT EXISTS sync_pairs (
 		id INTEGER PRIMARY KEY AUTOINCREMENT,
 		source_dir TEXT NOT NULL,
 		dest_dir TEXT NOT NULL,
+		UNIQUE(source_dir, dest_dir)
+	);
+
+	CREATE TABLE IF NOT EXISTS sync_jobs (
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		sync_pair_id INTEGER NOT NULL,
 		started_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
 		completed_at TIMESTAMP,
-		status TEXT NOT NULL CHECK(status IN ('running', 'completed', 'failed'))
+		status TEXT NOT NULL CHECK(status IN ('running', 'completed', 'failed')),
+		FOREIGN KEY (sync_pair_id) REFERENCES sync_pairs(id)
 	);
 
 	CREATE TABLE IF NOT EXISTS synced_files (
@@ -44,56 +59,37 @@ func setupTestSync(t *testing.T) (*sql.DB, string, string, func()) {
 		FOREIGN KEY (file_id) REFERENCES files(id)
 	);
 	`
-	tmpfile, err := os.CreateTemp("", "init-*.sql")
-	if err != nil {
-		t.Fatalf("Failed to create temp init.sql: %v", err)
-	}
+	sqlPath := "/init.sql"
+	afero.WriteFile(AppFs, sqlPath, []byte(initSQL), 0644)
 
-	if _, err := tmpfile.Write([]byte(initSQL)); err != nil {
-		t.Fatalf("Failed to write to temp init.sql: %v", err)
-	}
-	if err := tmpfile.Close(); err != nil {
-		t.Fatalf("Failed to close temp init.sql: %v", err)
-	}
-
-	if err := db.Migrate(database, tmpfile.Name()); err != nil {
+	if err := db.Migrate(database, sqlPath); err != nil {
 		t.Fatalf("Failed to migrate database: %v", err)
 	}
 
-	// Setup directories
-	srcDir, err := os.MkdirTemp("", "src")
+	// Create a sync pair for the test
+	syncPairID, err := db.CreateSyncPair(database, srcDir, dstDir)
 	if err != nil {
-		t.Fatalf("Failed to create temp src dir: %v", err)
-	}
-
-	dstDir, err := os.MkdirTemp("", "dst")
-	if err != nil {
-		t.Fatalf("Failed to create temp dst dir: %v", err)
+		t.Fatalf("Failed to create sync pair: %v", err)
 	}
 
 	cleanup := func() {
 		database.Close()
-		os.RemoveAll(srcDir)
-		os.RemoveAll(dstDir)
-		os.Remove(tmpfile.Name())
 	}
 
-	return database, srcDir, dstDir, cleanup
+	return database, srcDir, dstDir, syncPairID, cleanup
 }
 
 func TestSyncUniqueFiles(t *testing.T) {
-	database, srcDir, dstDir, cleanup := setupTestSync(t)
+	database, srcDir, dstDir, syncPairID, cleanup := setupTestSync(t)
 	defer cleanup()
 
 	// Create a test file
 	fileContent := []byte("hello world")
 	testFile := filepath.Join(srcDir, "test.txt")
-	if err := os.WriteFile(testFile, fileContent, 0644); err != nil {
-		t.Fatalf("Failed to write test file: %v", err)
-	}
+	afero.WriteFile(AppFs, testFile, fileContent, 0644)
 
 	// First sync
-	copied, err := SyncUniqueFiles(database, srcDir, dstDir)
+	copied, err := SyncUniqueFiles(database, srcDir, dstDir, syncPairID)
 	if err != nil {
 		t.Fatalf("SyncUniqueFiles failed: %v", err)
 	}
@@ -107,12 +103,30 @@ func TestSyncUniqueFiles(t *testing.T) {
 	}
 
 	// Second sync (should not copy anything)
-	copied, err = SyncUniqueFiles(database, srcDir, dstDir)
+	copied, err = SyncUniqueFiles(database, srcDir, dstDir, syncPairID)
 	if err != nil {
 		t.Fatalf("SyncUniqueFiles failed on second run: %v", err)
 	}
 
 	if len(copied) != 0 {
 		t.Fatalf("Expected 0 files to be copied on second run, got %d", len(copied))
+	}
+}
+
+func TestListFiles(t *testing.T) {
+	AppFs = afero.NewMemMapFs()
+	dir := "/test"
+	AppFs.Mkdir(dir, 0755)
+	afero.WriteFile(AppFs, "/test/file1.txt", []byte("file1"), 0644)
+	afero.WriteFile(AppFs, "/test/file2.txt", []byte("file2"), 0644)
+	AppFs.Mkdir("/test/subdir", 0755)
+
+	files, err := ListFiles(dir)
+	if err != nil {
+		t.Fatalf("ListFiles failed: %v", err)
+	}
+
+	if len(files) != 3 {
+		t.Fatalf("Expected 3 files, got %d", len(files))
 	}
 }

@@ -1,0 +1,21 @@
+<div class="modal-overlay" (click)="closeModal.emit()">
+  <div class="modal-content" (click)="$event.stopPropagation()">
+    <div class="modal-header">
+      <h2>Select a Folder</h2>
+      <button class="close-button" (click)="closeModal.emit()">&times;</button>
+    </div>
+    <div class="modal-body">
+      <div class="path-bar">
+        <span>Current Path: {{ currentPath || '/' }}</span>
+        <button (click)="goUp()" [disabled]="!currentPath">Up</button>
+      </div>
+      <ul class="file-list">
+        <li *ngFor="let file of (files$ | async)" [class.directory]="file.isDir" (click)="file.isDir && navigateTo(file.path)">
+          <span class="file-icon">{{ file.isDir ? '&#128193;' : '&#128196;' }}</span>
+          <span class="file-name">{{ file.name }}</span>
+          <button *ngIf="file.isDir" class="select-button" (click)="selectAndStopPropagation($event, file.path)">Select</button>
+        </li>
+      </ul>
+    </div>
+  </div>
+</div>

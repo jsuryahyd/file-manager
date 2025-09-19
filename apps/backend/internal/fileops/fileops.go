@@ -3,31 +3,53 @@ package fileops
 import (
 	"crypto/sha256"
 	"database/sql"
+	"errors"
 	"fmt"
 	"io"
-	"os"
 	"path/filepath"
+	"strings"
 
 	"file-manager-backend/internal/db"
+	"github.com/spf13/afero"
 )
 
+// FileEntryInfo defines the structure for file and directory metadata.
+type FileEntryInfo struct {
+	Name  string `json:"name"`
+	IsDir bool   `json:"isDir"`
+	Path  string `json:"path"`
+}
+
 // SyncUniqueFiles copies only unique files from srcDir to dstDir, skipping duplicates.
-func SyncUniqueFiles(database *sql.DB, srcDir, dstDir string) ([]string, error) {
-	jobID, err := db.CreateSyncJob(database, srcDir, dstDir)
+func SyncUniqueFiles(database *sql.DB, srcDir, dstDir string, syncPairID int64) ([]string, error) {
+	// Sanitize paths to remove trailing slashes
+	srcDir = strings.TrimRight(srcDir, "/")
+	dstDir = strings.TrimRight(dstDir, "/")
+
+	if srcDir == dstDir {
+		return nil, errors.New("source and destination cannot be the same")
+	}
+
+	jobID, err := db.CreateSyncJob(database, syncPairID)
 	if err != nil {
 		return nil, err
 	}
 
-	files, err := ListFileNames(srcDir)
+	files, err := ListFiles(srcDir)
 	if err != nil {
 		return nil, err
 	}
 
 	var copied []string
-	for _, name := range files {
-		srcPath := filepath.Join(srcDir, name)
-		info, err := os.Stat(srcPath)
-		if err != nil || info.IsDir() {
+	for _, file := range files {
+		// TODO: Implement recursive sync with a `recursive:true` parameter.
+		// For now, we only sync files in the root of the source directory.
+		if file.IsDir {
+			continue
+		}
+		srcPath := file.Path
+		info, err := AppFs.Stat(srcPath)
+		if err != nil {
 			continue // skip directories and errors
 		}
 
@@ -42,7 +64,7 @@ func SyncUniqueFiles(database *sql.DB, srcDir, dstDir string) ([]string, error) 
 		}
 
 		if existingFile == nil || existingFile.Hash != hash {
-			dstPath := filepath.Join(dstDir, name)
+			dstPath := filepath.Join(dstDir, file.Name)
 			err := CopyFile(srcPath, dstPath)
 			if err != nil {
 				db.UpdateSyncJobStatus(database, jobID, "failed")
@@ -61,7 +83,7 @@ func SyncUniqueFiles(database *sql.DB, srcDir, dstDir string) ([]string, error) 
 				return copied, err
 			}
 
-			copied = append(copied, name)
+			copied = append(copied, file.Name)
 		}
 	}
 
@@ -69,27 +91,32 @@ func SyncUniqueFiles(database *sql.DB, srcDir, dstDir string) ([]string, error) 
 	return copied, nil
 }
 
-// ListFileNames returns a list of files and folders in the given directory.
-func ListFileNames(dir string) ([]string, error) {
-	entries, err := os.ReadDir(dir)
+// ListFiles returns a list of files and folders in the given directory.
+func ListFiles(dir string) ([]FileEntryInfo, error) {
+	entries, err := afero.ReadDir(AppFs, dir)
 	if err != nil {
 		return nil, err
 	}
-	var files []string
+	var files []FileEntryInfo
 	for _, entry := range entries {
-		files = append(files, entry.Name())
+		fullPath := filepath.Join(dir, entry.Name())
+		files = append(files, FileEntryInfo{
+			Name:  entry.Name(),
+			IsDir: entry.IsDir(),
+			Path:  fullPath,
+		})
 	}
 	return files, nil
 }
 
 // CopyFile copies a file from src to dst.
 func CopyFile(src, dst string) error {
-	srcFile, err := os.Open(src)
+	srcFile, err := AppFs.Open(src)
 	if err != nil {
 		return err
 	}
 	defer srcFile.Close()
-	dstFile, err := os.Create(dst)
+	dstFile, err := AppFs.Create(dst)
 	if err != nil {
 		return err
 	}
@@ -100,17 +127,17 @@ func CopyFile(src, dst string) error {
 
 // MoveFile moves a file from src to dst.
 func MoveFile(src, dst string) error {
-	return os.Rename(src, dst)
+	return AppFs.Rename(src, dst)
 }
 
 // DeleteFile deletes the specified file.
 func DeleteFile(path string) error {
-	return os.Remove(path)
+	return AppFs.Remove(path)
 }
 
 // fileHash returns the SHA256 hash of a file.
 func fileHash(path string) (string, error) {
-	f, err := os.Open(path)
+	f, err := AppFs.Open(path)
 	if err != nil {
 		return "", err
 	}

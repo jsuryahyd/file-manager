@@ -1,11 +1,23 @@
 <form [formGroup]="form" (ngSubmit)="sync()">
   <div>
     <label for="source">Source Directory:</label>
-    <input id="source" formControlName="source" placeholder="/path/to/source">
+    <div class="input-group">
+      <input id="source" formControlName="source" placeholder="/path/to/source">
+      <button type="button" (click)="openModal('source')">Browse</button>
+    </div>
   </div>
   <div>
     <label for="destination">Destination Directory:</label>
-    <input id="destination" formControlName="destination" placeholder="/path/to/destination">
+    <div class="input-group">
+      <input id="destination" formControlName="destination" placeholder="/path/to/destination">
+      <button type="button" (click)="openModal('destination')">Browse</button>
+    </div>
   </div>
   <button type="submit" [disabled]="form.invalid">Sync</button>
 </form>
+
+<app-file-explorer-modal
+  *ngIf="isModalOpen"
+  (folderSelected)="onFolderSelected($event)"
+  (closeModal)="closeModal()">
+</app-file-explorer-modal>

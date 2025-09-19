@@ -2,13 +2,14 @@ package db
 
 import (
 	"database/sql"
-	"os"
 	"testing"
 
+	"github.com/spf13/afero"
 	_ "github.com/mattn/go-sqlite3"
 )
 
 func setupTestDB(t *testing.T) *sql.DB {
+	AppFs = afero.NewMemMapFs()
 	db, err := sql.Open("sqlite3", ":memory:")
 	if err != nil {
 		t.Fatalf("Failed to open in-memory database: %v", err)
@@ -25,13 +26,20 @@ func setupTestDB(t *testing.T) *sql.DB {
 		modified_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 	);
 
-	CREATE TABLE IF NOT EXISTS sync_jobs (
+	CREATE TABLE IF NOT EXISTS sync_pairs (
 		id INTEGER PRIMARY KEY AUTOINCREMENT,
 		source_dir TEXT NOT NULL,
 		dest_dir TEXT NOT NULL,
+		UNIQUE(source_dir, dest_dir)
+	);
+
+	CREATE TABLE IF NOT EXISTS sync_jobs (
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		sync_pair_id INTEGER NOT NULL,
 		started_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
 		completed_at TIMESTAMP,
-		status TEXT NOT NULL CHECK(status IN ('running', 'completed', 'failed'))
+		status TEXT NOT NULL CHECK(status IN ('running', 'completed', 'failed')),
+		FOREIGN KEY (sync_pair_id) REFERENCES sync_pairs(id)
 	);
 
 	CREATE TABLE IF NOT EXISTS synced_files (
@@ -42,20 +50,10 @@ func setupTestDB(t *testing.T) *sql.DB {
 		FOREIGN KEY (file_id) REFERENCES files(id)
 	);
 	`
-	tmpfile, err := os.CreateTemp("", "init-*.sql")
-	if err != nil {
-		t.Fatalf("Failed to create temp init.sql: %v", err)
-	}
-	defer os.Remove(tmpfile.Name())
+	sqlPath := "/init.sql"
+	afero.WriteFile(AppFs, sqlPath, []byte(initSQL), 0644)
 
-	if _, err := tmpfile.Write([]byte(initSQL)); err != nil {
-		t.Fatalf("Failed to write to temp init.sql: %v", err)
-	}
-	if err := tmpfile.Close(); err != nil {
-		t.Fatalf("Failed to close temp init.sql: %v", err)
-	}
-
-	if err := Migrate(db, tmpfile.Name()); err != nil {
+	if err := Migrate(db, sqlPath); err != nil {
 		t.Fatalf("Failed to migrate database: %v", err)
 	}
 
@@ -94,5 +92,31 @@ func TestCreateAndGetFile(t *testing.T) {
 
 	if file.Size != size {
 		t.Errorf("Expected size %d, got %d", size, file.Size)
+	}
+}
+
+func TestCreateAndGetSyncPair(t *testing.T) {
+	db := setupTestDB(t)
+	defer db.Close()
+
+	sourceDir := "/src"
+	destDir := "/dst"
+
+	// First time, should create a new pair
+	pairID, err := CreateSyncPair(db, sourceDir, destDir)
+	if err != nil {
+		t.Fatalf("CreateSyncPair failed: %v", err)
+	}
+	if pairID == 0 {
+		t.Fatal("Expected a non-zero pair ID")
+	}
+
+	// Second time, should get the existing pair
+	pair, err := GetSyncPair(db, sourceDir, destDir)
+	if err != nil {
+		t.Fatalf("GetSyncPair failed: %v", err)
+	}
+	if pair.ID != pairID {
+		t.Errorf("Expected pair ID %d, got %d", pairID, pair.ID)
 	}
 }

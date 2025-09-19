@@ -5,8 +5,7 @@ import { Observable } from 'rxjs';
 export interface FileEntry {
   name: string;
   isDir: boolean;
-  size: number;
-  modTime: string;
+  path: string;
 }
 
 export interface SyncRequest {
@@ -21,10 +20,14 @@ export class FileManagerApiService {
   constructor(private http: HttpClient) {}
 
   listFiles(path: string): Observable<FileEntry[]> {
-    return this.http.get<FileEntry[]>(`${this.apiUrl}/files?path=${encodeURIComponent(path)}`);
+    return this.http.get<FileEntry[]>(`${this.apiUrl}/files/list?path=${encodeURIComponent(path)}`);
   }
 
-  syncFiles(request: SyncRequest): Observable<void> {
-    return this.http.post<void>(`${this.apiUrl}/sync`, request);
+  syncFiles(request: SyncRequest, force = false): Observable<void> {
+    let url = `${this.apiUrl}/sync`;
+    if (force) {
+      url += '?force=true';
+    }
+    return this.http.post<void>(url, request);
   }
 }

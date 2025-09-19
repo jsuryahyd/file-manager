@@ -2,9 +2,9 @@ package db
 
 import (
 	"database/sql"
-	"os"
 
 	_ "github.com/mattn/go-sqlite3"
+	"github.com/spf13/afero"
 )
 
 // File represents a file in the database.
@@ -15,6 +15,13 @@ type File struct {
 	Size       int64
 	CreatedAt  string
 	ModifiedAt string
+}
+
+// SyncPair represents a source-destination pair for synchronization.
+type SyncPair struct {
+	ID        int64
+	SourceDir string
+	DestDir   string
 }
 
 // InitDB initializes the SQLite database and returns the connection.
@@ -28,7 +35,7 @@ func InitDB(dbPath string) (*sql.DB, error) {
 
 // Migrate runs the database initialization SQL script.
 func Migrate(db *sql.DB, sqlPath string) error {
-	content, err := os.ReadFile(sqlPath)
+	content, err := afero.ReadFile(AppFs, sqlPath)
 	if err != nil {
 		return err
 	}
@@ -65,15 +72,43 @@ func GetFileByPath(db *sql.DB, path string) (*File, error) {
 	return file, nil
 }
 
-// CreateSyncJob adds a new sync job to the database.
-func CreateSyncJob(db *sql.DB, sourceDir, destDir string) (int64, error) {
-	stmt, err := db.Prepare("INSERT INTO sync_jobs(source_dir, dest_dir, status) VALUES(?, ?, ?)")
+// GetSyncPair retrieves a sync pair by its source and destination directories.
+func GetSyncPair(db *sql.DB, sourceDir, destDir string) (*SyncPair, error) {
+	row := db.QueryRow("SELECT id, source_dir, dest_dir FROM sync_pairs WHERE source_dir = ? AND dest_dir = ?", sourceDir, destDir)
+
+	pair := &SyncPair{}
+	err := row.Scan(&pair.ID, &pair.SourceDir, &pair.DestDir)
+	if err != nil {
+		return nil, err
+	}
+
+	return pair, nil
+}
+
+// CreateSyncPair creates a new sync pair.
+func CreateSyncPair(db *sql.DB, sourceDir, destDir string) (int64, error) {
+	stmt, err := db.Prepare("INSERT INTO sync_pairs(source_dir, dest_dir) VALUES(?, ?)")
 	if err != nil {
 		return 0, err
 	}
 	defer stmt.Close()
 
-	res, err := stmt.Exec(sourceDir, destDir, "running")
+	res, err := stmt.Exec(sourceDir, destDir)
+	if err != nil {
+		return 0, err
+	}
+	return res.LastInsertId()
+}
+
+// CreateSyncJob adds a new sync job to the database.
+func CreateSyncJob(db *sql.DB, syncPairID int64) (int64, error) {
+	stmt, err := db.Prepare("INSERT INTO sync_jobs(sync_pair_id, status) VALUES(?, ?)")
+	if err != nil {
+		return 0, err
+	}
+	defer stmt.Close()
+
+	res, err := stmt.Exec(syncPairID, "running")
 	if err != nil {
 		return 0, err
 	}
