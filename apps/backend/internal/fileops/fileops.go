@@ -6,6 +6,8 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log"
+	"os"
 	"path/filepath"
 	"strings"
 
@@ -20,8 +22,8 @@ type FileEntryInfo struct {
 	Path  string `json:"path"`
 }
 
-// SyncUniqueFiles copies only unique files from srcDir to dstDir, skipping duplicates.
-func SyncUniqueFiles(database *sql.DB, srcDir, dstDir string, syncPairID int64) ([]string, error) {
+// SyncUniqueFiles copies only unique files from srcDir to dstDir, with options to handle existing files.
+func SyncUniqueFiles(database *sql.DB, srcDir, dstDir string, syncPairID int64, checkDuplicates bool, overwriteExisting bool) ([]string, error) {
 	// Sanitize paths to remove trailing slashes
 	srcDir = strings.TrimRight(srcDir, "/")
 	dstDir = strings.TrimRight(dstDir, "/")
@@ -37,6 +39,7 @@ func SyncUniqueFiles(database *sql.DB, srcDir, dstDir string, syncPairID int64) 
 
 	files, err := ListFiles(srcDir)
 	if err != nil {
+		db.UpdateSyncJobStatus(database, jobID, "failed")
 		return nil, err
 	}
 
@@ -48,43 +51,99 @@ func SyncUniqueFiles(database *sql.DB, srcDir, dstDir string, syncPairID int64) 
 			continue
 		}
 		srcPath := file.Path
-		info, err := AppFs.Stat(srcPath)
+		dstPath := filepath.Join(dstDir, file.Name)
+
+		srcInfo, err := AppFs.Stat(srcPath)
 		if err != nil {
-			continue // skip directories and errors
+			continue // skip if we can't stat source
 		}
 
-		hash, err := fileHash(srcPath)
+		dstInfo, err := AppFs.Stat(dstPath)
+		if err == nil { // Destination exists
+			if dstInfo.IsDir() {
+				log.Printf("Skipping '%s': a directory with the same name exists at destination.", file.Name)
+				continue // Can't replace a dir with a file
+			}
+
+			var srcHash, dstHash string
+			var hashErr error
+
+			// We need hashes to compare files
+			srcHash, hashErr = fileHash(srcPath)
+			if hashErr != nil {
+				continue // skip if we can't hash source
+			}
+			dstHash, hashErr = fileHash(dstPath)
+			if hashErr != nil {
+				continue // skip if we can't hash destination
+			}
+
+			if checkDuplicates && srcHash == dstHash {
+				log.Printf("Skipping '%s': identical file already exists at destination.", file.Name)
+				// Identical file exists, and we want to prevent duplicates.
+				// So, we skip copying. But we ensure it's tracked in the DB.
+				existingFile, err := db.GetFileByPath(database, srcPath)
+				if err != nil && err != sql.ErrNoRows {
+					return copied, err
+				}
+				if existingFile == nil { // Not tracked yet, so let's track it.
+					fileID, err := db.CreateFile(database, srcPath, srcHash, srcInfo.Size())
+					if err != nil {
+						db.UpdateSyncJobStatus(database, jobID, "failed")
+						return copied, err
+					}
+					_, err = db.CreateSyncedFile(database, jobID, fileID)
+					if err != nil {
+						db.UpdateSyncJobStatus(database, jobID, "failed")
+						return copied, err
+					}
+				}
+				continue // Done with this file.
+			}
+
+			if !overwriteExisting {
+				log.Printf("Skipping '%s': different file exists at destination and overwrite is disabled.", file.Name)
+				// Destination exists, it's different (or we didn't check for duplicates),
+				// and we are not allowed to overwrite.
+				continue
+			}
+		} else if !os.IsNotExist(err) {
+			log.Printf("Skipping '%s': error checking destination: %v", file.Name, err)
+			// Another error occurred when stating destination file (e.g. permission denied)
+			continue
+		}
+
+		// If we get here, we should copy the file.
+		if err == nil { // from Stat, so file exists
+			log.Printf("Copying '%s': overwriting different file at destination.", file.Name)
+		} else { // Stat returned an error, presumably IsNotExist
+			log.Printf("Copying '%s': file does not exist at destination.", file.Name)
+		}
+
+		srcHash, err := fileHash(srcPath)
 		if err != nil {
+			continue // skip if we can't hash source
+		}
+
+		err = CopyFile(srcPath, dstPath)
+		if err != nil {
+			db.UpdateSyncJobStatus(database, jobID, "failed")
 			return copied, err
 		}
 
-		existingFile, err := db.GetFileByPath(database, srcPath)
-		if err != nil && err != sql.ErrNoRows {
+		fileID, err := db.CreateFile(database, srcPath, srcHash, srcInfo.Size())
+		if err != nil {
+			db.UpdateSyncJobStatus(database, jobID, "failed")
 			return copied, err
 		}
 
-		if existingFile == nil || existingFile.Hash != hash {
-			dstPath := filepath.Join(dstDir, file.Name)
-			err := CopyFile(srcPath, dstPath)
-			if err != nil {
-				db.UpdateSyncJobStatus(database, jobID, "failed")
-				return copied, err
-			}
-
-			fileID, err := db.CreateFile(database, srcPath, hash, info.Size())
-			if err != nil {
-				db.UpdateSyncJobStatus(database, jobID, "failed")
-				return copied, err
-			}
-
-			_, err = db.CreateSyncedFile(database, jobID, fileID)
-			if err != nil {
-				db.UpdateSyncJobStatus(database, jobID, "failed")
-				return copied, err
-			}
-
-			copied = append(copied, file.Name)
+		_, err = db.CreateSyncedFile(database, jobID, fileID)
+		if err != nil {
+			db.UpdateSyncJobStatus(database, jobID, "failed")
+			return copied, err
 		}
+
+		copied = append(copied, file.Name)
 	}
 
 	db.UpdateSyncJobStatus(database, jobID, "completed")

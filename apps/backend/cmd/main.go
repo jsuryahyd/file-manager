@@ -18,8 +18,10 @@ import (
 
 // SyncRequest defines the structure for a synchronization request.
 type SyncRequest struct {
-	Source      string `json:"source"`
-	Destination string `json:"destination"`
+	Source            string `json:"source"`
+	Destination       string `json:"destination"`
+	CheckDuplicates   bool   `json:"checkDuplicates"`
+	OverwriteExisting bool   `json:"overwriteExisting"`
 }
 
 func main() {
@@ -133,7 +135,7 @@ func main() {
 			log.Printf("Existing sync pair found: %s -> %s (ID: %d)", pair.SourceDir, pair.DestDir, pair.ID)
 		}
 
-		_, err = fileops.SyncUniqueFiles(dbConn, pair.SourceDir, pair.DestDir, pair.ID)
+		_, err = fileops.SyncUniqueFiles(dbConn, pair.SourceDir, pair.DestDir, pair.ID, req.CheckDuplicates, req.OverwriteExisting)
 		if err != nil {
 			log.Printf("Error syncing files %s -> %s: %v", pair.SourceDir, pair.DestDir, err)
 			http.Error(w, err.Error(), http.StatusInternalServerError)

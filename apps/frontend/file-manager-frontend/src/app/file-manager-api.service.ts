@@ -11,6 +11,8 @@ export interface FileEntry {
 export interface SyncRequest {
   source: string;
   destination: string;
+  checkDuplicates: boolean;
+  overwriteExisting: boolean;
 }
 
 @Injectable({ providedIn: 'root' })

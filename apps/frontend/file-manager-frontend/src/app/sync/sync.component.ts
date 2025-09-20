@@ -20,7 +20,9 @@ export class SyncComponent {
 
   form = this.fb.group({
     source: ['', Validators.required],
-    destination: ['', Validators.required]
+    destination: ['', Validators.required],
+    checkDuplicates: [true],
+    overwriteExisting: [true]
   });
 
   openModal(inputType: 'source' | 'destination') {
@@ -42,8 +44,14 @@ export class SyncComponent {
 
   sync() {
     if (this.form.valid) {
-      const { source, destination } = this.form.value;
-      this.apiService.syncFiles({ source: source!, destination: destination! })
+      const { source, destination, checkDuplicates, overwriteExisting } = this.form.value;
+      const request = {
+        source: source!,
+        destination: destination!,
+        checkDuplicates: checkDuplicates!,
+        overwriteExisting: overwriteExisting!
+      };
+      this.apiService.syncFiles(request)
         .subscribe({
           next: () => {
             console.log('Sync completed successfully');
@@ -52,7 +60,7 @@ export class SyncComponent {
           error: (err) => {
             if (err.status === 409) {
               if (confirm('This is a new sync pair. Do you want to create it?')) {
-                this.apiService.syncFiles({ source: source!, destination: destination! }, true)
+                this.apiService.syncFiles(request, true)
                   .subscribe(() => {
                     console.log('Sync completed successfully');
                   });

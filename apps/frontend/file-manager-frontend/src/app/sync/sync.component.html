@@ -13,6 +13,18 @@
       <button type="button" (click)="openModal('destination')">Browse</button>
     </div>
   </div>
+  <div>
+    <label>
+      <input type="checkbox" formControlName="checkDuplicates">
+      Check for duplicates
+    </label>
+  </div>
+  <div>
+    <label>
+      <input type="checkbox" formControlName="overwriteExisting">
+      Overwrite existing files
+    </label>
+  </div>
   <button type="submit" [disabled]="form.invalid">Sync</button>
 </form>
 
