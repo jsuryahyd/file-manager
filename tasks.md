@@ -50,6 +50,14 @@
 - [ ] T024 [P] Polish UI/UX and improve performance.
 - [ ] T025 [P] Ensure accessibility and responsiveness.
 
+## Phase 5: Duplicate File Detection
+- [ ] T032 [P] **Backend**: Create new API endpoint `/api/duplicates/find` to scan a directory for duplicate files.
+- [ ] T033 [P] **Backend**: Implement duplicate detection logic using file hashes, metadata, and name patterns.
+- [ ] T034 [P] **Backend**: Create new API endpoint `/api/duplicates/delete` to delete specified files.
+- [ ] T035 [P] **Frontend**: Create a new component for the duplicate file detection UI.
+- [ ] T036 [P] **Frontend**: Implement the UI to display duplicate file sets and allow users to select files for deletion.
+- [ ] T037 [P] **Frontend**: Connect the UI to the backend API endpoints for finding and deleting duplicates.
+
 ## Obsolete Tasks
 - T014 Implement File Explorer screen with search and selection in `apps/frontend/file-manager-frontend/src/app/file-explorer/`.
 - T016 Implement sync and history UI.

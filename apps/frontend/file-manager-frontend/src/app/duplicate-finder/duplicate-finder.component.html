@@ -1,0 +1,31 @@
+<div>
+  <input [ngModel]="scanPath()" (ngModelChange)="scanPath.set($event)" placeholder="/path/to/scan">
+  <button (click)="findDuplicates()" [disabled]="isLoading()">
+    {{ isLoading() ? 'Scanning...' : 'Find Duplicates' }}
+  </button>
+</div>
+
+<div *ngIf="isLoading()">
+  <p>Scanning for duplicates...</p>
+</div>
+
+<div *ngIf="!isLoading() && duplicates().length > 0">
+  <h2>Duplicate Files Found:</h2>
+  <div *ngFor="let group of duplicates(); let i = index">
+    <h4>Duplicate Set {{ i + 1 }}</h4>
+    <ul>
+      <li *ngFor="let file of group">
+        <label>
+          <input type="checkbox" [ngModel]="selection()[file.path]" (ngModelChange)="onSelectionChange(file.path, $event)">
+          {{ file.path }}
+          <span *ngIf="file.isPotentialDuplicate"> - <em>Potential duplicate - Need to manually compare</em></span>
+        </label>
+      </li>
+    </ul>
+  </div>
+  <button (click)="deleteSelected()" [disabled]="!hasSelection()">Delete Selected</button>
+</div>
+
+<div *ngIf="!isLoading() && duplicates().length === 0">
+  <p>No duplicates found for the given path.</p>
+</div>

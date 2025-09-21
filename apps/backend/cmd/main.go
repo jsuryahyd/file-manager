@@ -24,6 +24,11 @@ type SyncRequest struct {
 	OverwriteExisting bool   `json:"overwriteExisting"`
 }
 
+// DeleteRequest defines the structure for a delete request.
+type DeleteRequest struct {
+	Paths []string `json:"paths"`
+}
+
 func main() {
 	cfg, err := config.Load()
 	if err != nil {
@@ -146,8 +151,79 @@ func main() {
 		w.WriteHeader(http.StatusNoContent)
 	})
 
+	findDuplicatesHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		path := r.URL.Query().Get("path")
+		if path == "" {
+			http.Error(w, "path is required", http.StatusBadRequest)
+			return
+		}
+
+		// It's a good idea to have some security checks on the path, similar to filesHandler.
+		homeDir, err := os.UserHomeDir()
+		if err != nil {
+			log.Printf("Error getting user home directory: %v", err)
+			http.Error(w, "Cannot get user home directory", http.StatusInternalServerError)
+			return
+		}
+		cleanPath := filepath.Clean(path)
+		if strings.HasPrefix(cleanPath, "..") {
+			log.Printf("Attempted directory traversal: %s", cleanPath)
+			http.Error(w, "Invalid path", http.StatusBadRequest)
+			return
+		}
+		fullPath := ""
+		if filepath.IsAbs(cleanPath) {
+			fullPath = cleanPath
+		} else {
+			fullPath = filepath.Join(homeDir, cleanPath)
+		}
+
+
+		duplicates, err := fileops.FindDuplicates(fullPath)
+		if err != nil {
+			log.Printf("Error finding duplicates in %s: %v", fullPath, err)
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		if err := json.NewEncoder(w).Encode(duplicates); err != nil {
+			log.Printf("Error encoding duplicates response: %v", err)
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+		}
+	})
+
+	deleteDuplicatesHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost {
+			http.Error(w, "Only POST method is allowed", http.StatusMethodNotAllowed)
+			return
+		}
+
+		var req DeleteRequest
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+
+		if len(req.Paths) == 0 {
+			http.Error(w, "paths are required", http.StatusBadRequest)
+			return
+		}
+
+		err := fileops.DeleteFiles(req.Paths)
+		if err != nil {
+			log.Printf("Error deleting files: %v", err)
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+
+		w.WriteHeader(http.StatusNoContent)
+	})
+
 	http.Handle("/api/files/list", corsMiddleware(filesHandler))
 	http.Handle("/api/sync", corsMiddleware(syncHandler))
+	http.Handle("/api/duplicates/find", corsMiddleware(findDuplicatesHandler))
+	http.Handle("/api/duplicates/delete", corsMiddleware(deleteDuplicatesHandler))
 
 	fmt.Println("File Manager Backend API running on :8080")
 	log.Fatal(http.ListenAndServe(":8080", nil))

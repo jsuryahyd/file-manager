@@ -6,6 +6,7 @@ export interface FileEntry {
   name: string;
   isDir: boolean;
   path: string;
+  isPotentialDuplicate?: boolean;
 }
 
 export interface SyncRequest {
@@ -31,5 +32,13 @@ export class FileManagerApiService {
       url += '?force=true';
     }
     return this.http.post<void>(url, request);
+  }
+
+  findDuplicates(path: string): Observable<FileEntry[][]> {
+    return this.http.get<FileEntry[][]>(`${this.apiUrl}/duplicates/find?path=${encodeURIComponent(path)}`);
+  }
+
+  deleteFiles(paths: string[]): Observable<void> {
+    return this.http.post<void>(`${this.apiUrl}/duplicates/delete`, { paths });
   }
 }

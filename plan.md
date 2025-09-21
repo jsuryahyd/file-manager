@@ -93,6 +93,12 @@ To provide a good user experience for folder selection, a custom file explorer w
 - Implement a success/toast message to provide feedback after a successful synchronization.
 - Replace all browser native alerts and popups with custom, polished UI components.
 
+### Duplicate File Detection and Deletion
+- Implement a new feature to recursively check a folder for duplicate files.
+- The backend will use multiple strategies to identify duplicates, including file hashes, name patterns (e.g., `file (1).txt`), and metadata.
+- A new UI will be created in the frontend to display potential duplicate files to the user.
+- The user will be able to select and delete unwanted duplicates through this UI.
+
 ### Frontend Testing Strategy
 Basic unit tests will be written for the Angular components to verify their internal logic. However, more comprehensive integration tests will be deferred to a later stage. These tests will be written using the `testing-library` to simulate real user interactions and ensure the components work correctly together.
 
