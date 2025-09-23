@@ -1,0 +1,36 @@
+.diff-container {
+  display: flex;
+  gap: 20px;
+  margin-top: 20px;
+}
+
+.panel {
+  flex: 1;
+  border: 1px solid #ccc;
+  padding: 10px;
+}
+
+ul {
+  list-style-type: none;
+  padding: 0;
+}
+
+li {
+  padding: 5px;
+  border-bottom: 1px solid #eee;
+}
+
+.copied {
+  color: green;
+}
+
+.skipped {
+  color: orange;
+}
+
+.errors {
+    margin-top: 20px;
+    border: 1px solid red;
+    padding: 10px;
+    color: red;
+}

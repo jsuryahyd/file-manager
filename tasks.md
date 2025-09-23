@@ -29,7 +29,7 @@
 - [x] T013 Update `apps/backend/internal/fileops/fileops.go` to refactor `ListFiles` and add validation to `SyncUniqueFiles`.
 - [x] T014 Update `apps/backend/cmd/main.go` to implement the new API logic for `/api/files/list` and `/api/sync`.
 - [x] T015 Implement robust logging for the backend.
-- [ ] T026 Implement database migration script that runs at server startup.
+- [x] T026 Implement database migration script that runs at server startup.
 
 ## Phase 3: Frontend Development
 - [x] T016 Scaffold Angular app in `apps/frontend/file-manager-frontend/`.
@@ -39,8 +39,10 @@
 - [x] T020 Update `apps/frontend/file-manager-frontend/src/app/sync/sync.component.ts` to use the new modal.
 - [x] T021 Update `apps/frontend/file-manager-frontend/src/app/file-manager-api.service.ts` to add a method for the new `/api/files/list` endpoint and to handle the `409 Conflict` error from `/api/sync`.
 - [x] T022 Add unit and integration tests for frontend.
-- [ ] T027 Update design system to use sans-serif font.
-- [ ] T028 Enhance `FileExplorerModalComponent` for multi-column view and local filter.
+- [x] T027 Update design system to use sans-serif font.
+- [x] T028 Enhance `FileExplorerModalComponent` for multi-column view and local filter.
+- [x] T028.1 Manually test the new FileExplorerModalComponent functionality.
+- [ ] T028.2 Add debouncing to the path input field in FileExplorerModalComponent.
 - [ ] T029 Implement single "Select" button on top of file explorer modal.
 - [ ] T030 Implement success/toast message after sync.
 - [ ] T031 Replace browser native alerts and popups with custom UI components.
@@ -57,6 +59,15 @@
 - [ ] T035 [P] **Frontend**: Create a new component for the duplicate file detection UI.
 - [ ] T036 [P] **Frontend**: Implement the UI to display duplicate file sets and allow users to select files for deletion.
 - [ ] T037 [P] **Frontend**: Connect the UI to the backend API endpoints for finding and deleting duplicates.
+
+## Phase 6: Sync Module Refactor
+- [ ] T038 [P] **Backend**: Refactor sync functionality into a new `sync` module in `apps/backend/internal/sync/`.
+- [ ] T039 [P] **Backend**: Implement recursive sync in the new `sync` module.
+- [ ] T040 [P] **Backend**: Add option to skip path patterns during sync.
+- [ ] T041 [P] **Backend**: Implement "peek mode" (dry run) for sync.
+- [ ] T042 [P] **Frontend**: Add a checkbox to enable/disable recursive sync in `apps/frontend/file-manager-frontend/src/app/sync/sync.component.html`.
+- [ ] T043 [P] **Frontend**: Add UI for managing skipped path patterns in `apps/frontend/file-manager-frontend/src/app/sync/sync.component.html`.
+- [ ] T044 [P] **Frontend**: Add UI to trigger and display "peek mode" results in `apps/frontend/file-manager-frontend/src/app/sync/sync.component.html`.
 
 ## Obsolete Tasks
 - T014 Implement File Explorer screen with search and selection in `apps/frontend/file-manager-frontend/src/app/file-explorer/`.

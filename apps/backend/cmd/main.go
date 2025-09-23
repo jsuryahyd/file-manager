@@ -14,14 +14,18 @@ import (
 	"file-manager-backend/internal/config"
 	"file-manager-backend/internal/db"
 	"file-manager-backend/internal/fileops"
+	"file-manager-backend/internal/sync"
 )
 
 // SyncRequest defines the structure for a synchronization request.
 type SyncRequest struct {
-	Source            string `json:"source"`
-	Destination       string `json:"destination"`
-	CheckDuplicates   bool   `json:"checkDuplicates"`
-	OverwriteExisting bool   `json:"overwriteExisting"`
+	Source            string   `json:"source"`
+	Destination       string   `json:"destination"`
+	CheckDuplicates   bool     `json:"checkDuplicates"`
+	OverwriteExisting bool     `json:"overwriteExisting"`
+	Recursive         bool     `json:"recursive"`
+	PeekMode          bool     `json:"peekMode"`
+	SkipPatterns      []string `json:"skipPatterns"`
 }
 
 // DeleteRequest defines the structure for a delete request.
@@ -43,18 +47,30 @@ func main() {
 	}
 	defer dbConn.Close()
 
-	if _, err := os.Stat(dbPath); os.IsNotExist(err) {
-		err = db.Migrate(dbConn, sqlPath)
-		if err != nil {
-			log.Fatalf("Failed to migrate database: %v", err)
-		}
-		fmt.Println("Database initialized.")
-	} else {
-		fmt.Println("Database already exists.")
+	err = db.Migrate(dbConn, sqlPath)
+	if err != nil {
+		log.Fatalf("Failed to migrate database: %v", err)
 	}
+	fmt.Println("Database migration completed.")
+
+	homeDirHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		homeDir, err := os.UserHomeDir()
+		if err != nil {
+			log.Printf("Error getting user home directory: %v", err)
+			http.Error(w, "Cannot get user home directory", http.StatusInternalServerError)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		if err := json.NewEncoder(w).Encode(map[string]string{"homeDir": homeDir}); err != nil {
+			log.Printf("Error encoding home directory response: %v", err)
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+		}
+	})
 
 	filesHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		path := r.URL.Query().Get("path")
+		fileType := r.URL.Query().Get("type")
+
 		homeDir, err := os.UserHomeDir()
 		if err != nil {
 			log.Printf("Error getting user home directory: %v", err)
@@ -78,7 +94,7 @@ func main() {
 		}
 
 		log.Printf("Listing files in: %s", fullPath)
-		entries, err := fileops.ListFiles(fullPath)
+		entries, err := fileops.ListFiles(fullPath, fileType)
 		if err != nil {
 			log.Printf("Error listing files in %s: %v", fullPath, err)
 			http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -140,7 +156,22 @@ func main() {
 			log.Printf("Existing sync pair found: %s -> %s (ID: %d)", pair.SourceDir, pair.DestDir, pair.ID)
 		}
 
-		_, err = fileops.SyncUniqueFiles(dbConn, pair.SourceDir, pair.DestDir, pair.ID, req.CheckDuplicates, req.OverwriteExisting)
+		opts := sync.Options{
+			Recursive:       req.Recursive,
+			PeekMode:        req.PeekMode,
+			SkipPatterns:    req.SkipPatterns,
+			Overwrite:       req.OverwriteExisting,
+			CheckDuplicates: req.CheckDuplicates,
+		}
+
+		job, err := sync.NewSyncJob(dbConn, pair.SourceDir, pair.DestDir, pair.ID, opts)
+		if err != nil {
+			log.Printf("Error creating sync job: %v", err)
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+
+		result, err := job.Run()
 		if err != nil {
 			log.Printf("Error syncing files %s -> %s: %v", pair.SourceDir, pair.DestDir, err)
 			http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -148,7 +179,16 @@ func main() {
 		}
 
 		log.Printf("Sync completed successfully for pair: %s -> %s", pair.SourceDir, pair.DestDir)
-		w.WriteHeader(http.StatusNoContent)
+
+		if opts.PeekMode {
+			w.Header().Set("Content-Type", "application/json")
+			if err := json.NewEncoder(w).Encode(result); err != nil {
+				log.Printf("Error encoding sync result: %v", err)
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+			}
+		} else {
+			w.WriteHeader(http.StatusNoContent)
+		}
 	})
 
 	findDuplicatesHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -224,6 +264,7 @@ func main() {
 	http.Handle("/api/sync", corsMiddleware(syncHandler))
 	http.Handle("/api/duplicates/find", corsMiddleware(findDuplicatesHandler))
 	http.Handle("/api/duplicates/delete", corsMiddleware(deleteDuplicatesHandler))
+	http.Handle("/api/user/home", corsMiddleware(homeDirHandler))
 
 	fmt.Println("File Manager Backend API running on :8080")
 	log.Fatal(http.ListenAndServe(":8080", nil))

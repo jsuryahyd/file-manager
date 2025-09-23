@@ -3,7 +3,6 @@ package config
 import (
 	"bufio"
 	"encoding/json"
-	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -117,18 +116,32 @@ func Load() (*Config, error) {
 	return cfg, nil
 }
 
-// getProjectRoot returns the absolute path to the project root
+// getProjectRoot returns the absolute path to the project root by looking for go.work
 func getProjectRoot() string {
 	if root := os.Getenv("PROJECT_ROOT"); root != "" {
-		fmt.Println(root)
 		return root
 	}
-	// For development, assuming we're in apps/backend/cmd
+
 	pwd, err := os.Getwd()
 	if err != nil {
 		return "."
 	}
 
-	// Navigate up to project root (2 levels up from cmd/)
-	return filepath.Clean(filepath.Join(pwd, "..", ".."))
+	for {
+		if _, err := os.Stat(filepath.Join(pwd, "go.work")); err == nil {
+			return pwd
+		}
+		if pwd == filepath.Dir(pwd) {
+			// Reached the root of the filesystem
+			break
+		}
+		pwd = filepath.Dir(pwd)
+	}
+
+	// Fallback for when go.work is not found
+	pwd, err = os.Getwd()
+	if err != nil {
+		return "."
+	}
+	return pwd
 }

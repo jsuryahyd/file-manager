@@ -4,18 +4,43 @@
       <h2>Select a Folder</h2>
       <button class="close-button" (click)="closeModal.emit()">&times;</button>
     </div>
+    <div class="path-and-filter-bar">
+      <input type="text" placeholder="Path..." [formControl]="pathControl" class="path-input" />
+      <input
+        type="text"
+        placeholder="Filter..."
+        [formControl]="filterControl"
+        class="filter-input"
+      />
+    </div>
     <div class="modal-body">
-      <div class="path-bar">
-        <span>Current Path: {{ currentPath || '/' }}</span>
-        <button (click)="goUp()" [disabled]="!currentPath">Up</button>
+      <div class="columns-container">
+        @for (column of columns(); track column) {
+        <div class="column">
+          <ul class="file-list">
+            @for (file of column; track file.path) {
+            <li
+              [class.directory]="file.isDir"
+              [class.selected]="selectedPath().startsWith(file.path)"
+              (click)="navigateTo(file.path)"
+            >
+              @if (file.isDir) {
+              <span class="file-icon">&#128193;</span>
+              }@else{
+              <span class="file-icon">&#128196;</span>
+              }
+
+              <span class="file-name">{{ file.name }}</span>
+              <span *ngIf="file.isDir" class="arrow">&gt;</span>
+            </li>
+            }
+          </ul>
+        </div>
+        }
       </div>
-      <ul class="file-list">
-        <li *ngFor="let file of (files$ | async)" [class.directory]="file.isDir" (click)="file.isDir && navigateTo(file.path)">
-          <span class="file-icon">{{ file.isDir ? '&#128193;' : '&#128196;' }}</span>
-          <span class="file-name">{{ file.name }}</span>
-          <button *ngIf="file.isDir" class="select-button" (click)="selectAndStopPropagation($event, file.path)">Select</button>
-        </li>
-      </ul>
+    </div>
+    <div class="modal-footer">
+      <button (click)="selectFolder(selectedPath())" [disabled]="!selectedPath()">Select</button>
     </div>
   </div>
 </div>

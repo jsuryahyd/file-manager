@@ -1,0 +1,24 @@
+<div class="diff-container">
+  <div class="panel">
+    <h3>Files to be Copied</h3>
+    <ul>
+      <li *ngFor="let file of result.FilesCopied" class="copied">
+        {{ file }}
+      </li>
+    </ul>
+  </div>
+  <div class="panel">
+    <h3>Files to be Skipped</h3>
+    <ul>
+      <li *ngFor="let file of result.FilesSkipped" class="skipped">
+        {{ file }}
+      </li>
+    </ul>
+  </div>
+</div>
+<div *ngIf="result.Errors && result.Errors.length > 0" class="errors">
+    <h3>Errors</h3>
+    <ul>
+        <li *ngFor="let error of result.Errors">{{ error }}</li>
+    </ul>
+</div>

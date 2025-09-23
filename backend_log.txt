@@ -1,0 +1,7 @@
+Database already exists.
+File Manager Backend API running on :8080
+2025/09/22 00:58:17 Existing sync pair found: C:\Users\surya\Documents -> G:\Documents (ID: 8)
+2025/09/22 00:58:17 Peek Mode: Would copy 'My Music' to 'G:\Documents\My Music'
+2025/09/22 00:58:17 Peek Mode: Would copy 'My Pictures' to 'G:\Documents\My Pictures'
+2025/09/22 00:58:17 Peek Mode: Would copy 'My Videos' to 'G:\Documents\My Videos'
+2025/09/22 00:58:17 Sync completed successfully for pair: C:\Users\surya\Documents -> G:\Documents
