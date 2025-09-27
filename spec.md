@@ -48,13 +48,21 @@ A user wants to reliably back up files from a local folder to another local fold
 - **FR-014**: The system MUST display a success/toast message after a successful synchronization.
 - **FR-015**: The system MUST replace all browser native alerts and popups with custom, polished UI components.
 - **FR-016**: The system MUST implement robust logging for all backend operations.
+- **FR-017**: The system MUST provide an API endpoint to retrieve the status of recent sync jobs.
+- **FR-018**: The UI MUST display a table of the last 10 sync jobs, showing their status (e.g., running, completed, failed).
+- **FR-019**: The status of jobs in the UI table MUST be periodically updated via polling.
+- **FR-020**: The API endpoint to start a sync job MUST return immediately and run the job in the background.
+- **FR-021**: The system MUST store the error message in the database if a sync job fails.
+- **FR-022**: The UI MUST provide an option to view the failure reason for a failed job.
+- **FR-023**: The UI MUST provide an option to pre-fill the sync form with the source and destination from a previous job.
 
 ### API Endpoints
 - `GET /api/files/list?path=<directory_path>`: Lists files and folders in the given directory. The path is relative to the user's home directory. If no path is provided, it lists the contents of the home directory.
-- `POST /api/sync`: Initiates a synchronization job. The request body should contain the source and destination directories.
+- `POST /api/sync`: Initiates a synchronization job. The request body should contain the source and destination directories. This endpoint is asynchronous.
   - Request Body: `{ "source": "/path/to/source", "destination": "/path/to/destination" }`
   - If the source-destination pair is new, the API will return a `409 Conflict` error.
   - To force the creation of a new pair, the client can send a subsequent request with a `force=true` query parameter: `POST /api/sync?force=true`.
+- `GET /api/sync/jobs`: Retrieves the last 10 sync jobs with their statuses.
 
 ### Key Entities *(include if feature involves data)*
 - **File**: Represents a single file on the filesystem. Key attributes include its full path, size, modification date, and a content hash.

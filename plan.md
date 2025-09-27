@@ -99,6 +99,18 @@ To provide a good user experience for folder selection, a custom file explorer w
 - A new UI will be created in the frontend to display potential duplicate files to the user.
 - The user will be able to select and delete unwanted duplicates through this UI.
 
+### Sync Job Polling and Status UI
+- The backend sync operation will be made asynchronous. When a user starts a sync, the API will immediately return a job ID.
+- A new backend endpoint (`/api/sync/jobs`) will be created to provide the status of the last 10 sync jobs.
+- The frontend will feature a table displaying recent sync jobs.
+- This table will poll the `/api/sync/jobs` endpoint every few seconds to provide a live view of job statuses.
+
+### Sync Job Error Handling and Actions
+- The database will be updated to store error messages for failed sync jobs.
+- The jobs table in the UI will feature a 3-dots menu for each job.
+- For failed jobs, the menu will contain an option to view the specific error message in a modal.
+- The menu will also contain an option to "Run sync again," which will pre-populate the main sync form with the selected job's source and destination paths.
+
 ### Frontend Testing Strategy
 Basic unit tests will be written for the Angular components to verify their internal logic. However, more comprehensive integration tests will be deferred to a later stage. These tests will be written using the `testing-library` to simulate real user interactions and ensure the components work correctly together.
 

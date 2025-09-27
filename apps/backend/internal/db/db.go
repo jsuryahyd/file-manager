@@ -2,6 +2,8 @@ package db
 
 import (
 	"database/sql"
+	"path/filepath"
+	"sort"
 
 	_ "github.com/mattn/go-sqlite3"
 	"github.com/spf13/afero"
@@ -24,6 +26,18 @@ type SyncPair struct {
 	DestDir   string
 }
 
+// SyncJob represents a single sync job with its associated pair info.
+type SyncJob struct {
+	ID          int64  `json:"id"`
+	SyncPairID  int64  `json:"syncPairId"`
+	Status      string `json:"status"`
+	StartedAt   string `json:"startedAt"`
+	CompletedAt string `json:"completedAt"`
+	SourceDir   string `json:"sourceDir"`
+	DestDir     string `json:"destDir"`
+	Misc        string `json:"misc"`
+}
+
 // InitDB initializes the SQLite database and returns the connection.
 func InitDB(dbPath string) (*sql.DB, error) {
 	db, err := sql.Open("sqlite3", dbPath)
@@ -33,14 +47,44 @@ func InitDB(dbPath string) (*sql.DB, error) {
 	return db, nil
 }
 
-// Migrate runs the database initialization SQL script.
-func Migrate(db *sql.DB, sqlPath string) error {
-	content, err := afero.ReadFile(AppFs, sqlPath)
+// Migrate runs the database initialization and migration scripts.
+func Migrate(db *sql.DB, initSQLPath string, migrationsPath string) error {
+	// Run initial schema
+	content, err := afero.ReadFile(AppFs, initSQLPath)
 	if err != nil {
 		return err
 	}
 	_, err = db.Exec(string(content))
-	return err
+	if err != nil {
+		return err
+	}
+
+	// Run migrations
+	migrations, err := afero.ReadDir(AppFs, migrationsPath)
+	if err != nil {
+		// Migrations directory might not exist, which is fine
+		return nil
+	}
+
+	sort.Slice(migrations, func(i, j int) bool {
+		return migrations[i].Name() < migrations[j].Name()
+	})
+
+	for _, migration := range migrations {
+		if filepath.Ext(migration.Name()) == ".sql" {
+			migrationPath := filepath.Join(migrationsPath, migration.Name())
+			content, err := afero.ReadFile(AppFs, migrationPath)
+			if err != nil {
+				return err
+			}
+			_, err = db.Exec(string(content))
+			if err != nil {
+				return err
+			}
+		}
+	}
+
+	return nil
 }
 
 // CreateFile adds a new file to the database.
@@ -117,8 +161,14 @@ func CreateSyncJob(db *sql.DB, syncPairID int64) (int64, error) {
 }
 
 // UpdateSyncJobStatus updates the status of a sync job.
-func UpdateSyncJobStatus(db *sql.DB, jobID int64, status string) error {
-	_, err := db.Exec("UPDATE sync_jobs SET status = ?, completed_at = CURRENT_TIMESTAMP WHERE id = ?", status, jobID)
+func UpdateSyncJobStatus(db *sql.DB, jobID int64, status string, errorMsg string) error {
+	var err error
+	if status == "failed" {
+		misc := fm.Sprintf(`{"error": "%s"}`, errorMsg)
+		_, err = db.Exec("UPDATE sync_jobs SET status = ?, completed_at = CURRENT_TIMESTAMP, misc = ? WHERE id = ?", status, misc, jobID)
+	} else {
+		_, err = db.Exec("UPDATE sync_jobs SET status = ?, completed_at = CURRENT_TIMESTAMP, misc = NULL WHERE id = ?", status, jobID)
+	}
 	return err
 }
 
@@ -134,6 +184,48 @@ func CreateSyncedFile(db *sql.DB, jobID, fileID int64) (int64, error) {
 	if err != nil {
 		return 0, err
 	}
-
 	return res.LastInsertId()
+}
+
+// GetSyncJobs retrieves the most recent sync jobs from the database.
+func GetSyncJobs(db *sql.DB, limit int) ([]SyncJob, error) {
+	rows, err := db.Query(`
+		SELECT
+			sj.id,
+			sj.sync_pair_id,
+			sj.status,
+			sj.started_at,
+			sj.completed_at,
+			sp.source_dir,
+			sp.dest_dir
+		FROM sync_jobs sj
+		JOIN sync_pairs sp ON sj.sync_pair_id = sp.id
+		ORDER BY sj.started_at DESC
+		LIMIT ?
+	`, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var jobs []SyncJob
+	for rows.Next() {
+		var job SyncJob
+		var completedAt sql.NullString
+		if err := rows.Scan(
+			&job.ID,
+			&job.SyncPairID,
+			&job.Status,
+			&job.StartedAt,
+			&completedAt,
+			&job.SourceDir,
+			&job.DestDir,
+		); err != nil {
+			return nil, err
+		}
+		job.CompletedAt = completedAt.String
+		jobs = append(jobs, job)
+	}
+
+	return jobs, nil
 }

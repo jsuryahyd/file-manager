@@ -1,12 +1,4 @@
-import {
-  Component,
-  EventEmitter,
-  inject,
-  OnInit,
-  Output,
-  signal,
-  ChangeDetectorRef,
-} from '@angular/core';
+import { Component, EventEmitter, inject, Input, OnInit, Output, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormControl, ReactiveFormsModule } from '@angular/forms';
 import { FileManagerApiService, FileEntry } from '../file-manager-api.service';
@@ -23,6 +15,13 @@ import { startWith, switchMap, map, debounceTime, take, catchError } from 'rxjs'
 export class FileExplorerModalComponent implements OnInit {
   private readonly apiService = inject(FileManagerApiService);
 
+  @Input()
+  set initialPath(path: string | undefined) {
+    if (path) {
+      this.path$.next(path);
+    }
+  }
+
   @Output() folderSelected = new EventEmitter<string>();
   @Output() closeModal = new EventEmitter<void>();
 
@@ -35,14 +34,18 @@ export class FileExplorerModalComponent implements OnInit {
   private path$ = new BehaviorSubject<string>('');
 
   ngOnInit(): void {
-    this.apiService
-      .getHomeDir()
-      .pipe(take(1))
-      .subscribe((homeDir) => {
-        this.path$.next(homeDir);
-      });
+    if (!this.path$.getValue()) {
+      this.apiService
+        .getHomeDir()
+        .pipe(take(1))
+        .subscribe((path) => {
+          this.path$.next(path);
+        });
+    }
 
-    this.pathControl.valueChanges.subscribe((p) => this.path$.next(p));
+    this.pathControl.valueChanges
+      .pipe(debounceTime(300))
+      .subscribe((p) => this.path$.next(p.trim()));
 
     const filterChanges$ = this.filterControl.valueChanges.pipe(startWith(''), debounceTime(300));
 
@@ -62,7 +65,7 @@ export class FileExplorerModalComponent implements OnInit {
     if (!path) {
       return of([]);
     }
-    const normalizedPath = path.replace(/\//g, '/');
+    const normalizedPath = path.replace(/\\/g, '/');
 
     const columnPaths: string[] = [];
     if (normalizedPath === '/') {
@@ -78,17 +81,18 @@ export class FileExplorerModalComponent implements OnInit {
           columnPaths.push(current);
           current += '/';
         }
-      } else {
-        // Unix
-        columnPaths.push('/');
-        let current = '/';
-        for (const segment of segments) {
-          current += segment;
-          columnPaths.push(current);
-          current += '/';
-        }
       }
     }
+    //  else {
+    //   // Unix
+    //   columnPaths.push('/');
+    //   let current = '/';
+    //   for (const segment of segments) {
+    //     current += segment;
+    //     columnPaths.push(current);
+    //     current += '/';
+    //   }
+    // }
 
     const columnObservables = columnPaths.map((p) =>
       this.apiService.listFiles(p, 'dir').pipe(

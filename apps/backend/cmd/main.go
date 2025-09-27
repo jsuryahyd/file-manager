@@ -40,6 +40,7 @@ func main() {
 	}
 	dbPath := cfg.Database.Path
 	sqlPath := cfg.Database.SQLInit
+	migrationsPath := filepath.Join(filepath.Dir(dbPath), "migrations")
 
 	dbConn, err := db.InitDB(dbPath)
 	if err != nil {
@@ -47,7 +48,7 @@ func main() {
 	}
 	defer dbConn.Close()
 
-	err = db.Migrate(dbConn, sqlPath)
+	err = db.Migrate(dbConn, sqlPath, migrationsPath)
 	if err != nil {
 		log.Fatalf("Failed to migrate database: %v", err)
 	}
@@ -164,30 +165,43 @@ func main() {
 			CheckDuplicates: req.CheckDuplicates,
 		}
 
-		job, err := sync.NewSyncJob(dbConn, pair.SourceDir, pair.DestDir, pair.ID, opts)
+		sourcePath := filepath.FromSlash(pair.SourceDir)
+		destPath := filepath.FromSlash(pair.DestDir)
+
+		job, err := sync.NewSyncJob(dbConn, sourcePath, destPath, pair.ID, opts)
 		if err != nil {
 			log.Printf("Error creating sync job: %v", err)
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
 
-		result, err := job.Run()
+		// Run the job in a goroutine to make it non-blocking
+		go job.Run()
+
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusAccepted)
+		if err := json.NewEncoder(w).Encode(map[string]int64{"jobId": pair.ID}); err != nil {
+			log.Printf("Error encoding job ID response: %v", err)
+		}
+	})
+
+	syncJobsHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodGet {
+			http.Error(w, "Only GET method is allowed", http.StatusMethodNotAllowed)
+			return
+		}
+
+		jobs, err := db.GetSyncJobs(dbConn, 10)
 		if err != nil {
-			log.Printf("Error syncing files %s -> %s: %v", pair.SourceDir, pair.DestDir, err)
+			log.Printf("Error getting sync jobs: %v", err)
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
 
-		log.Printf("Sync completed successfully for pair: %s -> %s", pair.SourceDir, pair.DestDir)
-
-		if opts.PeekMode {
-			w.Header().Set("Content-Type", "application/json")
-			if err := json.NewEncoder(w).Encode(result); err != nil {
-				log.Printf("Error encoding sync result: %v", err)
-				http.Error(w, err.Error(), http.StatusInternalServerError)
-			}
-		} else {
-			w.WriteHeader(http.StatusNoContent)
+		w.Header().Set("Content-Type", "application/json")
+		if err := json.NewEncoder(w).Encode(jobs); err != nil {
+			log.Printf("Error encoding sync jobs response: %v", err)
+			http.Error(w, err.Error(), http.StatusInternalServerError)
 		}
 	})
 
@@ -262,6 +276,7 @@ func main() {
 
 	http.Handle("/api/files/list", corsMiddleware(filesHandler))
 	http.Handle("/api/sync", corsMiddleware(syncHandler))
+	http.Handle("/api/sync/jobs", corsMiddleware(syncJobsHandler))
 	http.Handle("/api/duplicates/find", corsMiddleware(findDuplicatesHandler))
 	http.Handle("/api/duplicates/delete", corsMiddleware(deleteDuplicatesHandler))
 	http.Handle("/api/user/home", corsMiddleware(homeDirHandler))

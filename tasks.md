@@ -69,6 +69,24 @@
 - [ ] T043 [P] **Frontend**: Add UI for managing skipped path patterns in `apps/frontend/file-manager-frontend/src/app/sync/sync.component.html`.
 - [ ] T044 [P] **Frontend**: Add UI to trigger and display "peek mode" results in `apps/frontend/file-manager-frontend/src/app/sync/sync.component.html`.
 
+## Phase 7: Sync Job Polling
+- [ ] T045 [P] **Backend**: Add a new `SyncJob` struct and a `GetSyncJobs` function in `apps/backend/internal/db/db.go`.
+- [ ] T046 [P] **Backend**: Create a new API endpoint `/api/sync/jobs` in `apps/backend/cmd/main.go` to return the last 10 sync jobs.
+- [ ] T047 [P] **Backend**: Modify the `/api/sync` endpoint to be asynchronous by running the sync job in a goroutine.
+- [ ] T048 [P] **Frontend**: Add a `getSyncJobs()` method to `apps/frontend/file-manager-frontend/src/app/file-manager-api.service.ts`.
+- [ ] T049 [P] **Frontend**: Create a `sync-jobs-table` component to display the list of sync jobs.
+- [ ] T050 [P] **Frontend**: Implement polling logic in the `sync` component to periodically refresh the job list.
+
+## Phase 8: Sync Job Error Handling & Actions
+- [ ] T051 [P] **Backend**: Create a new database migration file to add a `misc` JSON column to the `sync_jobs` table.
+- [ ] T052 [P] **Backend**: Update `db.go` to modify `UpdateSyncJobStatus` to accept and store an error message.
+- [ ] T053 [P] **Backend**: Update `sync.go` to save the error message to the database when a job fails.
+- [ ] T054 [P] **Frontend**: Update the `SyncJob` interface to include the new `misc` field.
+- [ ] T055 [P] **Frontend**: In the `sync-jobs-table` component, add a 3-dots menu to each row.
+- [ ] T056 [P] **Frontend**: Implement the 'Show Fail Reason' menu item, visible only for failed jobs, to display the error in a modal.
+- [ ] T057 [P] **Frontend**: Implement the 'Run sync again' menu item to emit an event with the job details.
+- [ ] T058 [P] **Frontend**: Update the `sync` component to handle the 'Run sync again' event and pre-fill the form.
+
 ## Obsolete Tasks
 - T014 Implement File Explorer screen with search and selection in `apps/frontend/file-manager-frontend/src/app/file-explorer/`.
 - T016 Implement sync and history UI.

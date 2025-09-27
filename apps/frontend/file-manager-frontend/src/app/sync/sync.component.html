@@ -2,44 +2,50 @@
   <div>
     <label for="source">Source Directory:</label>
     <div class="input-group">
-      <input id="source" formControlName="source" placeholder="/path/to/source">
+      <input id="source" formControlName="source" placeholder="/path/to/source" />
       <button type="button" (click)="openModal('source')">Browse</button>
     </div>
-    <div *ngIf="form.get('source')?.hasError('absolutePath') && form.get('source')?.touched" class="error-message">
+    <div
+      *ngIf="form.get('source')?.hasError('absolutePath') && form.get('source')?.touched"
+      class="error-message"
+    >
       Please enter an absolute path (e.g., C:\Users\YourName\Documents or /home/YourName/Documents).
     </div>
   </div>
   <div>
     <label for="destination">Destination Directory:</label>
     <div class="input-group">
-      <input id="destination" formControlName="destination" placeholder="/path/to/destination">
+      <input id="destination" formControlName="destination" placeholder="/path/to/destination" />
       <button type="button" (click)="openModal('destination')">Browse</button>
     </div>
-    <div *ngIf="form.get('destination')?.hasError('absolutePath') && form.get('destination')?.touched" class="error-message">
+    <div
+      *ngIf="form.get('destination')?.hasError('absolutePath') && form.get('destination')?.touched"
+      class="error-message"
+    >
       Please enter an absolute path (e.g., C:\Users\YourName\Documents or /home/YourName/Documents).
     </div>
   </div>
   <div>
     <label>
-      <input type="checkbox" formControlName="checkDuplicates">
+      <input type="checkbox" formControlName="checkDuplicates" />
       Check for duplicates
     </label>
   </div>
   <div>
     <label>
-      <input type="checkbox" formControlName="overwriteExisting">
+      <input type="checkbox" formControlName="overwriteExisting" />
       Overwrite existing files
     </label>
   </div>
   <div>
     <label>
-      <input type="checkbox" formControlName="recursive">
+      <input type="checkbox" formControlName="recursive" />
       Recursive
     </label>
   </div>
   <div>
     <label>
-      <input type="checkbox" formControlName="peekMode">
+      <input type="checkbox" formControlName="peekMode" />
       Peek Mode (Dry Run)
     </label>
   </div>
@@ -50,13 +56,20 @@
   <button type="submit" [disabled]="form.invalid">Sync</button>
 </form>
 
+@if (isModalOpen){
 <app-file-explorer-modal
-  *ngIf="isModalOpen"
   (folderSelected)="onFolderSelected($event)"
-  (closeModal)="closeModal()">
+  (closeModal)="closeModal()"
+  [initialPath]="
+    activeInput === 'destination' ? form.value.destination || '' : form.value.source || ''
+  "
+>
 </app-file-explorer-modal>
+}
 
 <div *ngIf="peekResult">
   <h2>Peek Result</h2>
   <app-diff-view [result]="peekResult"></app-diff-view>
 </div>
+
+<app-sync-jobs-table [jobs]="jobs"></app-sync-jobs-table>

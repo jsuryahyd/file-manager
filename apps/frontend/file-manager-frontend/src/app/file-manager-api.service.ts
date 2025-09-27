@@ -26,6 +26,16 @@ export interface SyncResult {
   Errors: any[];
 }
 
+export interface SyncJob {
+  id: number;
+  syncPairId: number;
+  status: string;
+  startedAt: string;
+  completedAt: string;
+  sourceDir: string;
+  destDir: string;
+}
+
 @Injectable({ providedIn: 'root' })
 export class FileManagerApiService {
   private readonly apiUrl = 'http://localhost:8080/api';
@@ -54,6 +64,10 @@ export class FileManagerApiService {
 
   deleteFiles(paths: string[]): Observable<void> {
     return this.http.post<void>(`${this.apiUrl}/duplicates/delete`, { paths });
+  }
+
+  getSyncJobs(): Observable<SyncJob[]> {
+    return this.http.get<SyncJob[]>(`${this.apiUrl}/sync/jobs`);
   }
 
   getHomeDir(): Observable<string> {

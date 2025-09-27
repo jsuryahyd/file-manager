@@ -1,0 +1,33 @@
+<div class="table-container">
+  <table>
+    <thead>
+      <tr>
+        <th>Job ID</th>
+        <th>Source</th>
+        <th>Destination</th>
+        <th>Status</th>
+        <th>Started</th>
+        <th>Completed</th>
+      </tr>
+    </thead>
+    <tbody>
+      @for (job of jobs; track job.id) {
+        <tr>
+          <td>{{ job.id }}</td>
+          <td>{{ job.sourceDir }}</td>
+          <td>{{ job.destDir }}</td>
+          <td>
+            <span class="status-pill" [ngClass]="job.status">{{ job.status }}</span>
+          </td>
+          <td>{{ job.startedAt | date:'medium' }}</td>
+          <td>{{ job.completedAt ? (job.completedAt | date:'medium') : '-' }}</td>
+        </tr>
+      }
+      @if (jobs.length === 0) {
+        <tr>
+          <td colspan="6" class="empty-state">No sync jobs to display.</td>
+        </tr>
+      }
+    </tbody>
+  </table>
+</div>

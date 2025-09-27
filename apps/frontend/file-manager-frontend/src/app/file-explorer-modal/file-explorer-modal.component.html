@@ -2,7 +2,16 @@
   <div class="modal-content" (click)="$event.stopPropagation()">
     <div class="modal-header">
       <h2>Select a Folder</h2>
-      <button class="close-button" (click)="closeModal.emit()">&times;</button>
+      <div class="header-actions">
+        <button
+          class="select-button"
+          (click)="selectFolder(selectedPath())"
+          [disabled]="!selectedPath()"
+        >
+          Select
+        </button>
+        <button class="close-button" (click)="closeModal.emit()">&times;</button>
+      </div>
     </div>
     <div class="path-and-filter-bar">
       <input type="text" placeholder="Path..." [formControl]="pathControl" class="path-input" />
@@ -38,9 +47,6 @@
         </div>
         }
       </div>
-    </div>
-    <div class="modal-footer">
-      <button (click)="selectFolder(selectedPath())" [disabled]="!selectedPath()">Select</button>
     </div>
   </div>
 </div>

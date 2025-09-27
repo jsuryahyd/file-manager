@@ -9,11 +9,13 @@ import (
 	"log"
 	"os"
 	"path/filepath"
-	"strings"
+
+	// "strings"
 	"time"
 
 	"file-manager-backend/internal/db"
 	"file-manager-backend/internal/fileops"
+
 	"github.com/spf13/afero"
 )
 
@@ -61,9 +63,9 @@ func splitFileName(fileName string) (string, string) {
 
 // Run executes the sync job.
 func (j *Job) Run() (*Result, error) {
-	// Sanitize paths to remove trailing slashes
-	j.srcDir = strings.TrimRight(j.srcDir, "/")
-	j.dstDir = strings.TrimRight(j.dstDir, "/")
+	// Sanitize paths
+	j.srcDir = filepath.Clean(j.srcDir)
+	j.dstDir = filepath.Clean(j.dstDir)
 
 	if j.srcDir == j.dstDir {
 		return nil, errors.New("source and destination cannot be the same")
@@ -80,6 +82,11 @@ func (j *Job) Run() (*Result, error) {
 		if err != nil {
 			result.Errors = append(result.Errors, err)
 			return nil // continue walking
+		}
+
+		// Skip symlinks to avoid issues with Windows junctions and recursive loops.
+		if info.Mode()&os.ModeSymlink != 0 {
+			return nil
 		}
 
 		// TODO: Implement SkipPatterns logic
@@ -208,11 +215,9 @@ func (j *Job) Run() (*Result, error) {
 		return nil, err
 	}
 
-
 	db.UpdateSyncJobStatus(j.db, jobID, "completed")
 	return result, nil
 }
-
 
 // fileHash returns the SHA256 hash of a file.
 func fileHash(path string) (string, error) {
