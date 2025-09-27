@@ -1,65 +1,105 @@
-:host {
-  display: block;
-  margin-top: 2rem;
-}
-
 .table-container {
+  width: 100%;
   overflow-x: auto;
-  border: 1px solid #e0e0e0;
-  border-radius: 8px;
 }
 
 table {
   width: 100%;
   border-collapse: collapse;
+  margin: 20px 0;
+  font-size: 0.9em;
   font-family: sans-serif;
+  min-width: 400px;
+  box-shadow: 0 0 20px rgba(0, 0, 0, 0.15);
+}
+
+thead tr {
+  background-color: #009879;
+  color: #ffffff;
+  text-align: left;
 }
 
 th, td {
   padding: 12px 15px;
-  text-align: left;
-  border-bottom: 1px solid #e0e0e0;
 }
 
-thead th {
-  background-color: #f5f5f5;
-  font-weight: 600;
+tbody tr {
+  border-bottom: 1px solid #dddddd;
 }
 
-tbody tr:last-child td {
-  border-bottom: none;
+tbody tr:nth-of-type(even) {
+  background-color: #f3f3f3;
 }
 
-tbody tr:hover {
-  background-color: #f9f9f9;
+tbody tr:last-of-type {
+  border-bottom: 2px solid #009879;
+}
+
+.status-pill {
+  padding: 5px 10px;
+  border-radius: 20px;
+  color: white;
+  font-size: 0.8em;
+
+  &.completed {
+    background-color: #28a745;
+  }
+
+  &.running {
+    background-color: #007bff;
+  }
+
+  &.failed {
+    background-color: #dc3545;
+  }
 }
 
 .empty-state {
   text-align: center;
-  color: #757575;
-  padding: 30px;
+  padding: 20px;
+  color: #777;
 }
 
-.status-pill {
+.error-tooltip {
+  position: relative;
   display: inline-block;
-  padding: 4px 12px;
-  border-radius: 12px;
-  font-size: 0.8rem;
-  font-weight: 500;
-  text-transform: capitalize;
+  cursor: pointer;
 
-  &.completed {
-    background-color: #e8f5e9; // green
-    color: #2e7d32;
+  .error-icon {
+    color: red;
+    font-size: 1.2rem;
   }
 
-  &.running {
-    background-color: #e3f2fd; // blue
-    color: #1565c0;
+  .tooltip-content {
+    visibility: hidden;
+    width: 200px;
+    background-color: #333;
+    color: #fff;
+    text-align: center;
+    border-radius: 6px;
+    padding: 5px;
+    position: absolute;
+    z-index: 1;
+    bottom: 125%;
+    left: 50%;
+    margin-left: -100px;
+    opacity: 0;
+    transition: opacity 0.3s;
+
+    &::after {
+      content: "";
+      position: absolute;
+      top: 100%;
+      left: 50%;
+      margin-left: -5px;
+      border-width: 5px;
+      border-style: solid;
+      border-color: #333 transparent transparent transparent;
+    }
   }
 
-  &.failed {
-    background-color: #ffebee; // red
-    color: #c62828;
+  &:hover .tooltip-content {
+    visibility: visible;
+    opacity: 1;
   }
 }

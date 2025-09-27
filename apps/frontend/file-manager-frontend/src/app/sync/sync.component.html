@@ -5,12 +5,13 @@
       <input id="source" formControlName="source" placeholder="/path/to/source" />
       <button type="button" (click)="openModal('source')">Browse</button>
     </div>
-    <div
-      *ngIf="form.get('source')?.hasError('absolutePath') && form.get('source')?.touched"
-      class="error-message"
-    >
-      Please enter an absolute path (e.g., C:\Users\YourName\Documents or /home/YourName/Documents).
-    </div>
+    @if(form.get('source')?.hasError('absolutePath') && form.get('source')?.touched){
+      <div
+        class="error-message"
+      >
+        Please enter an absolute path (e.g., C:\Users\YourName\Documents or /home/YourName/Documents).
+      </div>
+    }
   </div>
   <div>
     <label for="destination">Destination Directory:</label>
@@ -18,12 +19,13 @@
       <input id="destination" formControlName="destination" placeholder="/path/to/destination" />
       <button type="button" (click)="openModal('destination')">Browse</button>
     </div>
-    <div
-      *ngIf="form.get('destination')?.hasError('absolutePath') && form.get('destination')?.touched"
-      class="error-message"
-    >
-      Please enter an absolute path (e.g., C:\Users\YourName\Documents or /home/YourName/Documents).
-    </div>
+    @if(form.get('destination')?.hasError('absolutePath') && form.get('destination')?.touched){
+      <div
+        class="error-message"
+      >
+        Please enter an absolute path (e.g., C:\Users\YourName\Documents or /home/YourName/Documents).
+      </div>
+    }
   </div>
   <div>
     <label>
@@ -44,15 +46,10 @@
     </label>
   </div>
   <div>
-    <label>
-      <input type="checkbox" formControlName="peekMode" />
-      Peek Mode (Dry Run)
-    </label>
-  </div>
-  <div>
     <label for="skipPatterns">Skip Patterns (one per line):</label>
     <textarea id="skipPatterns" formControlName="skipPatterns" rows="3"></textarea>
   </div>
+  <button type="button" (click)="preview()" [disabled]="form.invalid">Preview</button>
   <button type="submit" [disabled]="form.invalid">Sync</button>
 </form>
 
@@ -67,9 +64,11 @@
 </app-file-explorer-modal>
 }
 
-<div *ngIf="peekResult">
-  <h2>Peek Result</h2>
-  <app-diff-view [result]="peekResult"></app-diff-view>
-</div>
+@if (peekResult){
+  <div>
+    <h2>Peek Result</h2>
+    <app-diff-view [result]="peekResult"></app-diff-view>
+  </div>
+}
 
-<app-sync-jobs-table [jobs]="jobs"></app-sync-jobs-table>
+<app-sync-jobs-table [jobs]="jobs()"></app-sync-jobs-table>

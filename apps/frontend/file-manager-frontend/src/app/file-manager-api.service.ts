@@ -16,7 +16,6 @@ export interface SyncRequest {
   checkDuplicates: boolean;
   overwriteExisting: boolean;
   recursive: boolean;
-  peekMode: boolean;
   skipPatterns: string[];
 }
 
@@ -34,6 +33,7 @@ export interface SyncJob {
   completedAt: string;
   sourceDir: string;
   destDir: string;
+  misc?: string;
 }
 
 @Injectable({ providedIn: 'root' })
@@ -50,12 +50,16 @@ export class FileManagerApiService {
     return this.http.get<FileEntry[]>(url);
   }
 
-  syncFiles(request: SyncRequest, force = false): Observable<SyncResult | void> {
+  syncFiles(request: SyncRequest, force = false): Observable<void> {
     let url = `${this.apiUrl}/sync`;
     if (force) {
       url += '?force=true';
     }
-    return this.http.post<SyncResult | void>(url, request);
+    return this.http.post<void>(url, request);
+  }
+
+  peekSync(request: SyncRequest): Observable<SyncResult> {
+    return this.http.post<SyncResult>(`${this.apiUrl}/sync/preview`, request);
   }
 
   findDuplicates(path: string): Observable<FileEntry[][]> {

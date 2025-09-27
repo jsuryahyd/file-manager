@@ -1,4 +1,4 @@
-import { Component, inject, OnDestroy, OnInit } from '@angular/core';
+import { Component, inject, OnDestroy, OnInit, signal } from '@angular/core';
 import {
   FormBuilder,
   ReactiveFormsModule,
@@ -43,54 +43,57 @@ export class SyncComponent implements OnInit, OnDestroy {
   private readonly fb = inject(FormBuilder);
   private readonly apiService = inject(FileManagerApiService);
   private readonly toastService = inject(ToastService);
-  private readonly destroy$ = new Subject<void>();
+  private destroy$ = new Subject<void>();
 
   isModalOpen = false;
   activeInput: 'source' | 'destination' | null = null;
-  jobs: SyncJob[] = [];
+  jobs = signal<SyncJob[]>([]);
   isPolling = false;
 
   form = this.fb.group({
     source: ['', [Validators.required, absolutePathValidator]],
     destination: ['', [Validators.required, absolutePathValidator]],
     checkDuplicates: [true],
-    overwriteExisting: [true],
+    overwriteExisting: [false],
     recursive: [true],
-    peekMode: [false],
     skipPatterns: [''],
   });
 
   peekResult: any | null = null;
 
   ngOnInit(): void {
-    this.fetchJobs();
+    this.startPolling();
   }
 
   ngOnDestroy(): void {
     this.stopPolling();
   }
 
-  fetchJobs() {
-    this.apiService.getSyncJobs().subscribe(jobs => {
-      this.jobs = jobs;
-      if (!jobs.some(job => job.status === 'running')) {
-        this.stopPolling();
-      }
-    });
-  }
-
   startPolling() {
     if (this.isPolling) return;
 
     this.isPolling = true;
+    this.destroy$ = new Subject<void>(); // Re-create the subject
+
     timer(0, 5000)
       .pipe(
         switchMap(() => this.apiService.getSyncJobs()),
         takeUntil(this.destroy$)
       )
-      .subscribe(jobs => {
-        this.jobs = jobs;
-        if (!jobs.some(job => job.status === 'running')) {
+      .subscribe(newJobs => {
+        const prevJobs = this.jobs();
+        this.jobs.set(newJobs);
+
+        const justCompletedJob = newJobs.find(job => {
+            const prevJob = prevJobs.find(pJob => pJob.id === job.id);
+            return prevJob && prevJob.status === 'running' && job.status === 'completed';
+        });
+
+        if (justCompletedJob) {
+            this.toastService.show('Sync completed successfully.');
+        }
+
+        if (!newJobs.some(job => job.status === 'running')) {
           this.stopPolling();
         }
       });
@@ -120,7 +123,7 @@ export class SyncComponent implements OnInit, OnDestroy {
     this.closeModal();
   }
 
-  sync() {
+  preview() {
     if (this.form.valid) {
       const {
         source,
@@ -128,7 +131,6 @@ export class SyncComponent implements OnInit, OnDestroy {
         checkDuplicates,
         overwriteExisting,
         recursive,
-        peekMode,
         skipPatterns,
       } = this.form.value;
       const request: SyncRequest = {
@@ -137,30 +139,55 @@ export class SyncComponent implements OnInit, OnDestroy {
         checkDuplicates: checkDuplicates!,
         overwriteExisting: overwriteExisting!,
         recursive: recursive!,
-        peekMode: peekMode!,
+        skipPatterns: skipPatterns ? skipPatterns.split('\n') : [],
+      };
+
+      this.peekResult = null;
+
+      this.apiService.peekSync(request).subscribe({
+        next: (result) => {
+          this.peekResult = result;
+          console.log('Peek result:', this.peekResult);
+        },
+        error: (err) => {
+          console.error('Peek failed', err);
+        },
+      });
+    }
+  }
+
+  sync() {
+    if (this.form.valid) {
+      const {
+        source,
+        destination,
+        checkDuplicates,
+        overwriteExisting,
+        recursive,
+        skipPatterns,
+      } = this.form.value;
+      const request: SyncRequest = {
+        source: source!,
+        destination: destination!,
+        checkDuplicates: checkDuplicates!,
+        overwriteExisting: overwriteExisting!,
+        recursive: recursive!,
         skipPatterns: skipPatterns ? skipPatterns.split('\n') : [],
       };
 
       this.peekResult = null;
 
       this.apiService.syncFiles(request).subscribe({
-        next: (result) => {
-          if (peekMode) {
-            this.peekResult = result;
-            console.log('Peek result:', this.peekResult);
-          } else {
-            this.toastService.show('Sync job started and is now in progress.');
-            this.startPolling();
-          }
+        next: () => {
+          this.toastService.show('Sync job started and is now in progress.');
+          this.startPolling();
         },
         error: (err) => {
           if (err.status === 409) {
             if (confirm('This is a new sync pair. Do you want to create it?')) {
-              this.apiService.syncFiles(request, true).subscribe((result) => {
-                if (peekMode) {
-                  this.peekResult = result;
-                  console.log('Peek result:', this.peekResult);
-                }
+              this.apiService.syncFiles(request, true).subscribe(() => {
+                this.toastService.show('Sync job started and is now in progress.');
+                this.startPolling();
               });
             }
           } else {

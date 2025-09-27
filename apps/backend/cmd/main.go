@@ -24,7 +24,6 @@ type SyncRequest struct {
 	CheckDuplicates   bool     `json:"checkDuplicates"`
 	OverwriteExisting bool     `json:"overwriteExisting"`
 	Recursive         bool     `json:"recursive"`
-	PeekMode          bool     `json:"peekMode"`
 	SkipPatterns      []string `json:"skipPatterns"`
 }
 
@@ -109,6 +108,56 @@ func main() {
 		}
 	})
 
+	syncPreviewHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost {
+			http.Error(w, "Only POST method is allowed", http.StatusMethodNotAllowed)
+			return
+		}
+
+		var req SyncRequest
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			log.Printf("Error decoding sync request: %v", err)
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+
+		if req.Source == "" || req.Destination == "" {
+			log.Printf("Missing source or destination in sync request")
+			http.Error(w, "source and destination are required", http.StatusBadRequest)
+			return
+		}
+
+		opts := sync.Options{
+			Recursive:       req.Recursive,
+			SkipPatterns:    req.SkipPatterns,
+			Overwrite:       req.OverwriteExisting,
+			CheckDuplicates: req.CheckDuplicates,
+		}
+
+		sourcePath := filepath.FromSlash(req.Source)
+		destPath := filepath.FromSlash(req.Destination)
+
+		job, err := sync.NewSyncJob(dbConn, sourcePath, destPath, 0, opts) // syncPairID is 0 because we are not creating a job
+		if err != nil {
+			log.Printf("Error creating sync job: %v", err)
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+
+		result, err := job.Peek()
+		if err != nil {
+			log.Printf("Error running sync peek: %v", err)
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		if err := json.NewEncoder(w).Encode(result); err != nil {
+			log.Printf("Error encoding sync peek response: %v", err)
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+		}
+	})
+
 	syncHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost {
 			http.Error(w, "Only POST method is allowed", http.StatusMethodNotAllowed)
@@ -159,7 +208,6 @@ func main() {
 
 		opts := sync.Options{
 			Recursive:       req.Recursive,
-			PeekMode:        req.PeekMode,
 			SkipPatterns:    req.SkipPatterns,
 			Overwrite:       req.OverwriteExisting,
 			CheckDuplicates: req.CheckDuplicates,
@@ -275,6 +323,7 @@ func main() {
 	})
 
 	http.Handle("/api/files/list", corsMiddleware(filesHandler))
+	http.Handle("/api/sync/preview", corsMiddleware(syncPreviewHandler))
 	http.Handle("/api/sync", corsMiddleware(syncHandler))
 	http.Handle("/api/sync/jobs", corsMiddleware(syncJobsHandler))
 	http.Handle("/api/duplicates/find", corsMiddleware(findDuplicatesHandler))

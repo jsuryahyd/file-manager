@@ -11,4 +11,16 @@ import { SyncJob } from '../file-manager-api.service';
 })
 export class SyncJobsTableComponent {
   @Input() jobs: SyncJob[] = [];
+
+  getErrorMessage(job: SyncJob): string | null {
+    if (job.misc) {
+      try {
+        const miscData = JSON.parse(job.misc);
+        return miscData.error || null;
+      } catch (e) {
+        return null;
+      }
+    }
+    return null;
+  }
 }

@@ -3,10 +3,10 @@ package sync
 import (
 	"database/sql"
 	"os"
+	"path/filepath"
 	"testing"
 
 	"file-manager-backend/internal/db"
-	"file-manager-backend/internal/fileops"
 	"github.com/spf13/afero"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -16,8 +16,17 @@ import (
 func setupTestDb(t *testing.T) *sql.DB {
 	dbConn, err := sql.Open("sqlite3", ":memory:")
 	require.NoError(t, err)
-	// The path is relative to the test file
-	err = db.Migrate(dbConn, "../../database/init.sql")
+
+	// Copy init.sql to a temporary file in the in-memory filesystem
+	initSQL, err := afero.Afero{Fs: afero.NewOsFs()}.ReadFile("../../database/init.sql")
+	require.NoError(t, err)
+
+	tmpDir, err := afero.TempDir(db.AppFs, "", "testdb")
+	require.NoError(t, err)
+	sqlPath := filepath.Join(tmpDir, "init.sql")
+	afero.WriteFile(db.AppFs, sqlPath, initSQL, 0644)
+
+	err = db.Migrate(dbConn, sqlPath, "")
 	require.NoError(t, err)
 	return dbConn
 }
@@ -25,7 +34,7 @@ func setupTestDb(t *testing.T) *sql.DB {
 func TestSyncPeekMode(t *testing.T) {
 	// Setup
 	fs := afero.NewMemMapFs()
-	fileops.AppFs = fs // Use in-memory fs for tests
+	db.AppFs = fs // Use in-memory fs for tests
 	dbConn := setupTestDb(t)
 	defer dbConn.Close()
 
@@ -82,7 +91,7 @@ func TestSyncPeekMode(t *testing.T) {
 func TestSyncNameConflict(t *testing.T) {
 	// Setup
 	fs := afero.NewMemMapFs()
-	fileops.AppFs = fs // Use in-memory fs for tests
+	db.AppFs = fs // Use in-memory fs for tests
 	dbConn := setupTestDb(t)
 	defer dbConn.Close()
 

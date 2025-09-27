@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"time"
 
+	"file-manager-backend/internal/db"
 	"github.com/spf13/afero"
 )
 
@@ -22,7 +23,7 @@ type FileEntryInfo struct {
 
 // ListFiles returns a list of files and folders in the given directory.
 func ListFiles(dir string, fileType string) ([]FileEntryInfo, error) {
-	entries, err := afero.ReadDir(AppFs, dir)
+	entries, err := afero.ReadDir(db.AppFs, dir)
 	if err != nil {
 		return nil, err
 	}
@@ -48,12 +49,12 @@ func ListFiles(dir string, fileType string) ([]FileEntryInfo, error) {
 
 // CopyFile copies a file from src to dst.
 func CopyFile(src, dst string) error {
-	srcFile, err := AppFs.Open(src)
+	srcFile, err := db.AppFs.Open(src)
 	if err != nil {
 		return err
 	}
 	defer srcFile.Close()
-	dstFile, err := AppFs.Create(dst)
+	dstFile, err := db.AppFs.Create(dst)
 	if err != nil {
 		return err
 	}
@@ -64,12 +65,12 @@ func CopyFile(src, dst string) error {
 
 // MoveFile moves a file from src to dst.
 func MoveFile(src, dst string) error {
-	return AppFs.Rename(src, dst)
+	return db.AppFs.Rename(src, dst)
 }
 
 // DeleteFile deletes the specified file.
 func DeleteFile(path string) error {
-	return AppFs.Remove(path)
+	return db.AppFs.Remove(path)
 }
 
 // DeleteFiles deletes a list of files.
@@ -87,7 +88,7 @@ func DeleteFiles(paths []string) error {
 // fileHash returns the SHA256 hash of a file.
 func fileHash(path string) (string, error) {
 	start := time.Now()
-	f, err := AppFs.Open(path)
+	f, err := db.AppFs.Open(path)
 	if err != nil {
 		return "", err
 	}
@@ -106,7 +107,7 @@ func fileHash(path string) (string, error) {
 func FindDuplicates(dir string) ([][]FileEntryInfo, error) {
 	filesBySize := make(map[int64][]FileEntryInfo)
 
-	err := afero.Walk(AppFs, dir, func(path string, info os.FileInfo, err error) error {
+	err := afero.Walk(db.AppFs, dir, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			return err
 		}

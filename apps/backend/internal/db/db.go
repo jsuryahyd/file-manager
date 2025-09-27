@@ -2,6 +2,7 @@ package db
 
 import (
 	"database/sql"
+	"fmt"
 	"path/filepath"
 	"sort"
 
@@ -50,13 +51,35 @@ func InitDB(dbPath string) (*sql.DB, error) {
 // Migrate runs the database initialization and migration scripts.
 func Migrate(db *sql.DB, initSQLPath string, migrationsPath string) error {
 	// Run initial schema
-	content, err := afero.ReadFile(AppFs, initSQLPath)
+	content, err := afero.Afero{Fs: AppFs}.ReadFile(initSQLPath)
 	if err != nil {
 		return err
 	}
 	_, err = db.Exec(string(content))
 	if err != nil {
 		return err
+	}
+
+	// Create migrations table if it doesn't exist
+	_, err = db.Exec(`CREATE TABLE IF NOT EXISTS schema_migrations (version TEXT NOT NULL PRIMARY KEY);`)
+	if err != nil {
+		return err
+	}
+
+	// Get applied migrations
+	rows, err := db.Query("SELECT version FROM schema_migrations")
+	if err != nil {
+		return err
+	}
+	defer rows.Close()
+
+	appliedMigrations := make(map[string]bool)
+	for rows.Next() {
+		var version string
+		if err := rows.Scan(&version); err != nil {
+			return err
+		}
+		appliedMigrations[version] = true
 	}
 
 	// Run migrations
@@ -72,14 +95,21 @@ func Migrate(db *sql.DB, initSQLPath string, migrationsPath string) error {
 
 	for _, migration := range migrations {
 		if filepath.Ext(migration.Name()) == ".sql" {
-			migrationPath := filepath.Join(migrationsPath, migration.Name())
-			content, err := afero.ReadFile(AppFs, migrationPath)
-			if err != nil {
-				return err
-			}
-			_, err = db.Exec(string(content))
-			if err != nil {
-				return err
+			if !appliedMigrations[migration.Name()] {
+				migrationPath := filepath.Join(migrationsPath, migration.Name())
+				content, err := afero.Afero{Fs: AppFs}.ReadFile(migrationPath)
+				if err != nil {
+					return err
+				}
+				_, err = db.Exec(string(content))
+				if err != nil {
+					return err
+				}
+
+				_, err = db.Exec("INSERT INTO schema_migrations (version) VALUES (?)", migration.Name())
+				if err != nil {
+					return err
+				}
 			}
 		}
 	}
@@ -164,7 +194,7 @@ func CreateSyncJob(db *sql.DB, syncPairID int64) (int64, error) {
 func UpdateSyncJobStatus(db *sql.DB, jobID int64, status string, errorMsg string) error {
 	var err error
 	if status == "failed" {
-		misc := fm.Sprintf(`{"error": "%s"}`, errorMsg)
+		misc := fmt.Sprintf(`{"error": "%s"}`, errorMsg)
 		_, err = db.Exec("UPDATE sync_jobs SET status = ?, completed_at = CURRENT_TIMESTAMP, misc = ? WHERE id = ?", status, misc, jobID)
 	} else {
 		_, err = db.Exec("UPDATE sync_jobs SET status = ?, completed_at = CURRENT_TIMESTAMP, misc = NULL WHERE id = ?", status, jobID)
@@ -197,7 +227,8 @@ func GetSyncJobs(db *sql.DB, limit int) ([]SyncJob, error) {
 			sj.started_at,
 			sj.completed_at,
 			sp.source_dir,
-			sp.dest_dir
+			sp.dest_dir,
+			sj.misc
 		FROM sync_jobs sj
 		JOIN sync_pairs sp ON sj.sync_pair_id = sp.id
 		ORDER BY sj.started_at DESC
@@ -212,6 +243,7 @@ func GetSyncJobs(db *sql.DB, limit int) ([]SyncJob, error) {
 	for rows.Next() {
 		var job SyncJob
 		var completedAt sql.NullString
+		var misc sql.NullString
 		if err := rows.Scan(
 			&job.ID,
 			&job.SyncPairID,
@@ -220,10 +252,12 @@ func GetSyncJobs(db *sql.DB, limit int) ([]SyncJob, error) {
 			&completedAt,
 			&job.SourceDir,
 			&job.DestDir,
+			&misc,
 		); err != nil {
 			return nil, err
 		}
 		job.CompletedAt = completedAt.String
+		job.Misc = misc.String
 		jobs = append(jobs, job)
 	}
 

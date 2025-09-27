@@ -50,10 +50,10 @@ func setupTestDB(t *testing.T) *sql.DB {
 		FOREIGN KEY (file_id) REFERENCES files(id)
 	);
 	`
-	sqlPath := "/init.sql"
+	sqlPath := "init.sql"
 	afero.WriteFile(AppFs, sqlPath, []byte(initSQL), 0644)
 
-	if err := Migrate(db, sqlPath); err != nil {
+	if err := Migrate(db, sqlPath, ""); err != nil {
 		t.Fatalf("Failed to migrate database: %v", err)
 	}
 

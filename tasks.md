@@ -79,7 +79,7 @@
 
 ## Phase 8: Sync Job Error Handling & Actions
 - [ ] T051 [P] **Backend**: Create a new database migration file to add a `misc` JSON column to the `sync_jobs` table.
-- [ ] T052 [P] **Backend**: Update `db.go` to modify `UpdateSyncJobStatus` to accept and store an error message.
+- [x] T052 [P] **Backend**: Update `db.go` to modify `UpdateSyncJobStatus` to accept and store an error message.
 - [ ] T053 [P] **Backend**: Update `sync.go` to save the error message to the database when a job fails.
 - [ ] T054 [P] **Frontend**: Update the `SyncJob` interface to include the new `misc` field.
 - [ ] T055 [P] **Frontend**: In the `sync-jobs-table` component, add a 3-dots menu to each row.

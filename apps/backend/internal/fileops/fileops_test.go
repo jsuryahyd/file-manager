@@ -2,7 +2,6 @@ package fileops
 
 import (
 	"database/sql"
-	"path/filepath"
 	"testing"
 
 	"file-manager-backend/internal/db"
@@ -12,12 +11,11 @@ import (
 
 func setupTestSync(t *testing.T) (*sql.DB, string, string, int64, func()) {
 	// Setup filesystems
-	AppFs = afero.NewMemMapFs()
-	db.AppFs = AppFs
+	db.AppFs = afero.NewMemMapFs()
 	srcDir := "/src"
 	dstDir := "/dst"
-	AppFs.Mkdir(srcDir, 0755)
-	AppFs.Mkdir(dstDir, 0755)
+	db.AppFs.Mkdir(srcDir, 0755)
+	db.AppFs.Mkdir(dstDir, 0755)
 
 	// Setup database
 	database, err := sql.Open("sqlite3", ":memory:")
@@ -60,9 +58,9 @@ func setupTestSync(t *testing.T) (*sql.DB, string, string, int64, func()) {
 	);
 	`
 	sqlPath := "/init.sql"
-	afero.WriteFile(AppFs, sqlPath, []byte(initSQL), 0644)
+	afero.WriteFile(db.AppFs, sqlPath, []byte(initSQL), 0644)
 
-	if err := db.Migrate(database, sqlPath); err != nil {
+	if err := db.Migrate(database, sqlPath, ""); err != nil {
 		t.Fatalf("Failed to migrate database: %v", err)
 	}
 
@@ -79,49 +77,15 @@ func setupTestSync(t *testing.T) (*sql.DB, string, string, int64, func()) {
 	return database, srcDir, dstDir, syncPairID, cleanup
 }
 
-func TestSyncUniqueFiles(t *testing.T) {
-	database, srcDir, dstDir, syncPairID, cleanup := setupTestSync(t)
-	defer cleanup()
-
-	// Create a test file
-	fileContent := []byte("hello world")
-	testFile := filepath.Join(srcDir, "test.txt")
-	afero.WriteFile(AppFs, testFile, fileContent, 0644)
-
-	// First sync
-	copied, err := SyncUniqueFiles(database, srcDir, dstDir, syncPairID)
-	if err != nil {
-		t.Fatalf("SyncUniqueFiles failed: %v", err)
-	}
-
-	if len(copied) != 1 {
-		t.Fatalf("Expected 1 file to be copied, got %d", len(copied))
-	}
-
-	if copied[0] != "test.txt" {
-		t.Errorf("Expected 'test.txt' to be copied, got %s", copied[0])
-	}
-
-	// Second sync (should not copy anything)
-	copied, err = SyncUniqueFiles(database, srcDir, dstDir, syncPairID)
-	if err != nil {
-		t.Fatalf("SyncUniqueFiles failed on second run: %v", err)
-	}
-
-	if len(copied) != 0 {
-		t.Fatalf("Expected 0 files to be copied on second run, got %d", len(copied))
-	}
-}
-
 func TestListFiles(t *testing.T) {
-	AppFs = afero.NewMemMapFs()
+	db.AppFs = afero.NewMemMapFs()
 	dir := "/test"
-	AppFs.Mkdir(dir, 0755)
-	afero.WriteFile(AppFs, "/test/file1.txt", []byte("file1"), 0644)
-	afero.WriteFile(AppFs, "/test/file2.txt", []byte("file2"), 0644)
-	AppFs.Mkdir("/test/subdir", 0755)
+	db.AppFs.Mkdir(dir, 0755)
+	afero.WriteFile(db.AppFs, "/test/file1.txt", []byte("file1"), 0644)
+	afero.WriteFile(db.AppFs, "/test/file2.txt", []byte("file2"), 0644)
+	db.AppFs.Mkdir("/test/subdir", 0755)
 
-	files, err := ListFiles(dir)
+	files, err := ListFiles(dir, "")
 	if err != nil {
 		t.Fatalf("ListFiles failed: %v", err)
 	}
