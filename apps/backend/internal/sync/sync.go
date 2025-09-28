@@ -58,6 +58,22 @@ func splitFileName(fileName string) (string, string) {
 	return base, ext
 }
 
+// matchesSkipPatterns checks if a given path matches any of the provided skip patterns.
+func matchesSkipPatterns(path string, skipPatterns []string) bool {
+	for _, pattern := range skipPatterns {
+		// filepath.Match handles glob patterns
+		matched, err := filepath.Match(pattern, filepath.Base(path))
+		if err != nil {
+			log.Printf("Error matching pattern %s against path %s: %v", pattern, path, err)
+			continue
+		}
+		if matched {
+			return true
+		}
+	}
+	return false
+}
+
 // Peek executes a dry run of the sync job.
 func (j *Job) Peek() (*Result, error) {
 	// Sanitize paths
@@ -81,7 +97,21 @@ func (j *Job) Peek() (*Result, error) {
 			return nil
 		}
 
-		// TODO: Implement SkipPatterns logic
+		// for _, p := range skipPatterns {
+		// 	matched, err := regexp.MatchString(p, path)
+		// 	if err != nil {
+		// 		fmt.Println("Error checking for skip pattern:", p, path, err)
+		// 		return err
+		// 	}
+
+		// 	if matched {
+		// 		return nil
+		// 	}
+		// }
+
+		if len(j.opts.SkipPatterns) > 0 && matchesSkipPatterns(path, j.opts.SkipPatterns) {
+			return nil
+		}
 
 		if info.IsDir() {
 			if !j.opts.Recursive && path != j.srcDir {
@@ -157,7 +187,7 @@ func (j *Job) Peek() (*Result, error) {
 		return nil
 	}
 
-	err = afero.Walk(fileops.AppFs, j.srcDir, walkFunc)
+	err := afero.Walk(fileops.AppFs, j.srcDir, walkFunc)
 	if err != nil {
 		return nil, err
 	}
@@ -190,12 +220,26 @@ func (j *Job) Run() (*Result, error) {
 
 		// Skip symlinks to avoid issues with Windows junctions and recursive loops.
 		if info.Mode()&os.ModeSymlink != 0 {
-			return nil
+			return filepath.SkipDir
 		}
 
-		// TODO: Implement SkipPatterns logic
+		if len(j.opts.SkipPatterns) > 0 && matchesSkipPatterns(path, j.opts.SkipPatterns) {
+			return filepath.SkipDir
+		}
 
 		if info.IsDir() {
+			relPath, err := filepath.Rel(j.srcDir, path)
+			if err != nil {
+				result.Errors = append(result.Errors, err)
+				return nil
+			}
+			dstDirPath := filepath.Join(j.dstDir, relPath)
+			if _, err := fileops.AppFs.Stat(dstDirPath); os.IsNotExist(err) {
+				if err := fileops.AppFs.MkdirAll(dstDirPath, 0755); err != nil {
+					result.Errors = append(result.Errors, err)
+					return nil
+				}
+			}
 			if !j.opts.Recursive && path != j.srcDir {
 				return filepath.SkipDir
 			}

@@ -54,13 +54,32 @@ func CopyFile(src, dst string) error {
 		return err
 	}
 	defer srcFile.Close()
+
+	srcInfo, err := db.AppFs.Stat(src)
+	if err != nil {
+		return err
+	}
+
 	dstFile, err := db.AppFs.Create(dst)
 	if err != nil {
 		return err
 	}
 	defer dstFile.Close()
+
 	_, err = io.Copy(dstFile, srcFile)
-	return err
+	if err != nil {
+		return err
+	}
+
+	// Preserve file metadata
+	if err = db.AppFs.Chtimes(dst, srcInfo.ModTime(), srcInfo.ModTime()); err != nil {
+		return err
+	}
+	if err = db.AppFs.Chmod(dst, srcInfo.Mode()); err != nil {
+		return err
+	}
+
+	return nil
 }
 
 // MoveFile moves a file from src to dst.
