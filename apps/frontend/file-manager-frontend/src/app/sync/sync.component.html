@@ -64,10 +64,10 @@
 </app-file-explorer-modal>
 }
 
-@if (peekResult){
+@if (peekResult()){
   <div>
     <h2>Peek Result</h2>
-    <app-diff-view [result]="peekResult"></app-diff-view>
+    <app-diff-view [result]="peekResult()"></app-diff-view>
   </div>
 }
 

@@ -220,10 +220,12 @@ func (j *Job) Run() (*Result, error) {
 
 		// Skip symlinks to avoid issues with Windows junctions and recursive loops.
 		if info.Mode()&os.ModeSymlink != 0 {
+			log.Printf("Skipping symlink: %s", path)
 			return filepath.SkipDir
 		}
 
 		if len(j.opts.SkipPatterns) > 0 && matchesSkipPatterns(path, j.opts.SkipPatterns) {
+			log.Printf("Skipping path because it matches a skip pattern: %s", path)
 			return filepath.SkipDir
 		}
 
@@ -241,6 +243,7 @@ func (j *Job) Run() (*Result, error) {
 				}
 			}
 			if !j.opts.Recursive && path != j.srcDir {
+				log.Printf("Skipping directory because recursive mode is disabled: %s", path)
 				return filepath.SkipDir
 			}
 			return nil // continue walking
@@ -362,7 +365,7 @@ func (j *Job) Run() (*Result, error) {
 	}
 
 	err = afero.Walk(fileops.AppFs, j.srcDir, walkFunc)
-	if err != nil {
+	if err != nil && err != filepath.SkipDir {
 		db.UpdateSyncJobStatus(j.db, jobID, "failed", err.Error())
 		return nil, err
 	}

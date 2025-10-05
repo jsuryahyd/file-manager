@@ -68,31 +68,24 @@ export class FileExplorerModalComponent implements OnInit {
     const normalizedPath = path.replace(/\\/g, '/');
 
     const columnPaths: string[] = [];
-    if (normalizedPath === '/') {
-      columnPaths.push('/');
-    } else {
-      const segments = normalizedPath.split('/').filter((p) => p);
-      if (/^[a-zA-Z]:$/.test(segments[0])) {
-        // Windows
-        let current = (segments.shift() as string) + '/';
+    const segments = normalizedPath.split('/').filter(p => p);
+    let current = '';
+
+    if (normalizedPath.startsWith('/')) {
+        // Unix-like paths
+        columnPaths.push('/');
+        current = '/';
+    } else if (segments.length > 0 && /^[a-zA-Z]:$/.test(segments[0])) {
+        // Windows paths
+        current = (segments.shift() as string) + '/';
         columnPaths.push(current);
-        for (const segment of segments) {
-          current += segment;
-          columnPaths.push(current);
-          current += '/';
-        }
-      }
     }
-    //  else {
-    //   // Unix
-    //   columnPaths.push('/');
-    //   let current = '/';
-    //   for (const segment of segments) {
-    //     current += segment;
-    //     columnPaths.push(current);
-    //     current += '/';
-    //   }
-    // }
+
+    for (const segment of segments) {
+        current += segment;
+        columnPaths.push(current);
+        current += '/';
+    }
 
     const columnObservables = columnPaths.map((p) =>
       this.apiService.listFiles(p, 'dir').pipe(

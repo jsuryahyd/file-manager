@@ -87,6 +87,13 @@
 - [ ] T057 [P] **Frontend**: Implement the 'Run sync again' menu item to emit an event with the job details.
 - [ ] T058 [P] **Frontend**: Update the `sync` component to handle the 'Run sync again' event and pre-fill the form.
 
+## Phase 9: Bugfix - File Explorer Modal Directory Listing
+- [x] T059 [P] **Backend**: Modify `filesHandler` in `main.go` to use the user's home directory when the `path` parameter is empty.
+- [x] T060 [P] **Frontend**: Refactor `getHomeDir()` in `FileManagerApiService` to use `listFiles` with an empty path.
+- [x] T061 [P] **Frontend**: Uncomment and fix the Unix path generation logic in `getColumnsObservable` in `file-explorer-modal.component.ts`.
+- [x] T062 [P] **Frontend**: Refactor path handling in `getColumnsObservable` to reliably generate columns for both Windows and Unix paths.
+- [x] T063 [P] **Frontend**: Verify the fix by testing the file explorer modal on a Linux environment. (Manual testing required)
+
 ## Obsolete Tasks
 - T014 Implement File Explorer screen with search and selection in `apps/frontend/file-manager-frontend/src/app/file-explorer/`.
 - T016 Implement sync and history UI.

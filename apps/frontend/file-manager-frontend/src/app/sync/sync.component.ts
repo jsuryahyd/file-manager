@@ -59,7 +59,7 @@ export class SyncComponent implements OnInit, OnDestroy {
     skipPatterns: [''],
   });
 
-  peekResult: any | null = null;
+  peekResult = signal<any | null>(null);
 
   ngOnInit(): void {
     this.startPolling();
@@ -81,6 +81,7 @@ export class SyncComponent implements OnInit, OnDestroy {
         takeUntil(this.destroy$)
       )
       .subscribe(newJobs => {
+        if(!newJobs) return this.stopPolling();
         const prevJobs = this.jobs();
         this.jobs.set(newJobs);
 
@@ -142,12 +143,12 @@ export class SyncComponent implements OnInit, OnDestroy {
         skipPatterns: skipPatterns ? skipPatterns.split('\n') : [],
       };
 
-      this.peekResult = null;
+      this.peekResult.set(null);
 
       this.apiService.peekSync(request).subscribe({
         next: (result) => {
-          this.peekResult = result;
-          console.log('Peek result:', this.peekResult);
+          this.peekResult.set(result);
+          console.log('Peek result:', this.peekResult());
         },
         error: (err) => {
           console.error('Peek failed', err);
@@ -175,7 +176,7 @@ export class SyncComponent implements OnInit, OnDestroy {
         skipPatterns: skipPatterns ? skipPatterns.split('\n') : [],
       };
 
-      this.peekResult = null;
+      this.peekResult.set(null);
 
       this.apiService.syncFiles(request).subscribe({
         next: () => {

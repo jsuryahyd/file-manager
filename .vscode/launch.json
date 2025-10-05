@@ -7,10 +7,7 @@
             "request": "launch",
             "mode": "auto",
             "program": "${workspaceFolder}/apps/backend/cmd/main.go",
-            "cwd": "${workspaceFolder}/apps/backend",
-            "env": {
-                "GOPATH": "C:\\Users\\surya\\go"
-            }
+            "cwd": "${workspaceFolder}/apps/backend"
         },
         {
             "name": "Debug Test Package",

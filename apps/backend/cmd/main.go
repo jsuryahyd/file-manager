@@ -53,29 +53,18 @@ func main() {
 	}
 	fmt.Println("Database migration completed.")
 
-	homeDirHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		homeDir, err := os.UserHomeDir()
-		if err != nil {
-			log.Printf("Error getting user home directory: %v", err)
-			http.Error(w, "Cannot get user home directory", http.StatusInternalServerError)
-			return
-		}
-		w.Header().Set("Content-Type", "application/json")
-		if err := json.NewEncoder(w).Encode(map[string]string{"homeDir": homeDir}); err != nil {
-			log.Printf("Error encoding home directory response: %v", err)
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-		}
-	})
-
 	filesHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		path := r.URL.Query().Get("path")
 		fileType := r.URL.Query().Get("type")
 
-		homeDir, err := os.UserHomeDir()
-		if err != nil {
-			log.Printf("Error getting user home directory: %v", err)
-			http.Error(w, "Cannot get user home directory", http.StatusInternalServerError)
-			return
+		if path == "" {
+			homeDir, err := os.UserHomeDir()
+			if err != nil {
+				log.Printf("Error getting user home directory: %v", err)
+				http.Error(w, "Cannot get user home directory", http.StatusInternalServerError)
+				return
+			}
+			path = homeDir
 		}
 
 		// Prevent directory traversal
@@ -86,12 +75,7 @@ func main() {
 			return
 		}
 
-		fullPath := ""
-		if filepath.IsAbs(cleanPath) {
-			fullPath = cleanPath
-		} else {
-			fullPath = filepath.Join(homeDir, cleanPath)
-		}
+		fullPath := cleanPath
 
 		log.Printf("Listing files in: %s", fullPath)
 		entries, err := fileops.ListFiles(fullPath, fileType)
@@ -280,7 +264,6 @@ func main() {
 			fullPath = filepath.Join(homeDir, cleanPath)
 		}
 
-
 		duplicates, err := fileops.FindDuplicates(fullPath)
 		if err != nil {
 			log.Printf("Error finding duplicates in %s: %v", fullPath, err)
@@ -328,7 +311,6 @@ func main() {
 	http.Handle("/api/sync/jobs", corsMiddleware(syncJobsHandler))
 	http.Handle("/api/duplicates/find", corsMiddleware(findDuplicatesHandler))
 	http.Handle("/api/duplicates/delete", corsMiddleware(deleteDuplicatesHandler))
-	http.Handle("/api/user/home", corsMiddleware(homeDirHandler))
 
 	fmt.Println("File Manager Backend API running on :8080")
 	log.Fatal(http.ListenAndServe(":8080", nil))
