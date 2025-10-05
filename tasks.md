@@ -94,6 +94,9 @@
 - [x] T062 [P] **Frontend**: Refactor path handling in `getColumnsObservable` to reliably generate columns for both Windows and Unix paths.
 - [x] T063 [P] **Frontend**: Verify the fix by testing the file explorer modal on a Linux environment. (Manual testing required)
 
+## Phase 10: AI-Powered Sync Jobs
+- [ ] T064 [P] **Feature**: AI-Powered Sync Jobs. See [spec](./specs/002-new-feature-instead/spec.md) and [tasks](./specs/002-new-feature-instead/tasks.md).
+
 ## Obsolete Tasks
 - T014 Implement File Explorer screen with search and selection in `apps/frontend/file-manager-frontend/src/app/file-explorer/`.
 - T016 Implement sync and history UI.

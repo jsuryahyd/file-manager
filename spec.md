@@ -71,6 +71,12 @@ A user wants to reliably back up files from a local folder to another local fold
 
 ---
 
+## Phase 2: AI-Powered Sync Jobs
+
+See [Feature Specification: AI-Powered Sync Jobs](./specs/002-new-feature-instead/spec.md)
+
+---
+
 ## Review & Acceptance Checklist
 *GATE: Automated checks run during main() execution*
 
