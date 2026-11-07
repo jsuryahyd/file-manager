@@ -35,4 +35,6 @@ apps/
   - Implemented new API handlers in the backend.
 
 <!-- MANUAL ADDITIONS START -->
+## Learnings & Environment Notes
+- Transient CLI launch issues in initial runs resolve once the runtime environment and agent runners are active.
 <!-- MANUAL ADDITIONS END -->
